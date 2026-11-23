@@ -2,10 +2,17 @@
 <html lang="en" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GrooveVault" />
+  <meta name="theme-color" content="#090a0d" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%23090a0d'/%3E%3Ccircle cx='90' cy='90' r='70' fill='%23181b24' stroke='%23f59e0b' stroke-width='4'/%3E%3Ccircle cx='90' cy='90' r='52' fill='none' stroke='%23334155' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='90' r='36' fill='none' stroke='%23334155' stroke-width='1.5'/%3E%3Ccircle cx='90' cy='90' r='22' fill='%23f59e0b'/%3E%3Ccircle cx='90' cy='90' r='6' fill='%23090a0d'/%3E%3C/svg%3E" />
   <title>GrooveVault // Underground Vinyl DJ Recognition & Crate Studio</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tesseract.js v5 for Real Browser OCR -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <!-- Google Fonts: Inter & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -97,7 +104,7 @@
   <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
   <!-- Top Navigation Header -->
-  <header class="sticky top-0 z-40 bg-booth-900/90 backdrop-blur-md border-b border-booth-700/80 px-4 sm:px-6 py-3">
+  <header class="sticky top-0 z-40 bg-booth-900/90 backdrop-blur-md border-b border-booth-700/80 px-4 sm:px-6 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
     <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-cyan-500 p-[2px] shadow-lg shadow-amber-500/10">
@@ -109,14 +116,14 @@
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">GROOVE<span class="text-amber-400">VAULT</span></h1>
-            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Booth OS v2.4</span>
+            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Live OCR + Discogs</span>
           </div>
           <p class="text-xs text-slate-400 hidden sm:block">Underground Electronic Vinyl Optical Scanner &amp; Harmonic Crate Engine</p>
         </div>
       </div>
 
-      <!-- Navigation Tabs & Quick Stats -->
-      <div class="flex items-center gap-2 sm:gap-4">
+      <!-- Navigation Tabs & Discogs Token Button -->
+      <div class="flex items-center gap-2 sm:gap-3">
         <nav class="flex bg-booth-950 p-1 rounded-xl border border-booth-700">
           <button onclick="switchTab('scanner')" id="nav-scanner" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all bg-amber-500 text-booth-950 font-semibold shadow">
             <i class="fa-solid fa-compact-disc mr-1.5"></i>Scanner &amp; Lab
@@ -126,10 +133,33 @@
           </button>
         </nav>
 
-        <div class="hidden md:flex items-center gap-3 text-xs font-mono text-slate-400 bg-booth-850 px-3 py-2 rounded-xl border border-booth-700">
-          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>pgvector Index: Online</span>
-          <span class="text-booth-700">|</span>
-          <span>Offline Cache: Ready</span>
+        <button onclick="toggleTokenDrawer()" id="token-status-btn" class="flex items-center gap-2 text-xs font-mono bg-booth-850 hover:bg-booth-800 px-3 py-2 rounded-xl border border-booth-700 transition">
+          <span id="token-status-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+          <span id="token-status-label" class="text-slate-200">Discogs API Token</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Collapsible Discogs Personal Access Token Drawer -->
+    <div id="discogs-token-drawer" class="hidden max-w-7xl mx-auto mt-3 pt-3 border-t border-booth-800">
+      <div class="bg-booth-950 border border-booth-700 rounded-xl p-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div class="text-xs space-y-1">
+          <div class="font-semibold text-amber-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-key"></i> Connect Your Free Discogs Personal Access Token
+          </div>
+          <p class="text-slate-400">
+            1. Log in at <span class="font-mono text-cyan-300">discogs.com/settings/developers</span> &rarr; click <strong>Generate new token</strong>.<br class="hidden sm:inline" />
+            2. Paste it below (saved locally on your iPhone/browser) to unlock live vinyl catalog &amp; tracklist lookups.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <input type="password" id="discogs-token-input" placeholder="Paste Discogs token here..." class="bg-booth-900 border border-booth-700 rounded-xl px-3 py-2 text-xs font-mono text-white w-56 sm:w-64 focus:outline-none focus:border-amber-500" />
+          <button onclick="saveDiscogsToken()" class="px-3.5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-booth-950 font-bold text-xs transition">
+            Save Token
+          </button>
+          <button onclick="toggleTokenDrawer()" class="px-2.5 py-2 rounded-xl bg-booth-800 text-slate-400 hover:text-white text-xs">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
         </div>
       </div>
     </div>
@@ -143,50 +173,93 @@
     <!-- ===================================================================== -->
     <section id="view-scanner" class="space-y-6">
 
-      <!-- Top Row: Sample Selector & Capture Controls -->
-      <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+      <!-- Top Row: Manual Catalog / Matrix Search Bar + Capture Controls -->
+      <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h2 class="text-sm font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-2">
-              <i class="fa-solid fa-eye"></i> Multi-Layer Vinyl Optical &amp; Acoustic Recognition
+              <i class="fa-solid fa-eye"></i> Live Label OCR &amp; Discogs Vinyl Lookup
             </h2>
-            <p class="text-xs text-slate-400 mt-0.5">Select an underground pressing preset, upload a label/record photo, or open live booth camera.</p>
+            <p class="text-xs text-slate-400 mt-0.5">Snap a center label with your iPhone camera, upload a record photo, or search any catalog number / matrix.</p>
           </div>
 
           <!-- Capture Action Buttons -->
           <div class="flex flex-wrap items-center gap-2">
+            <button onclick="toggleCamera()" id="camera-toggle-btn" class="px-3.5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-xs font-semibold text-cyan-200 transition flex items-center gap-2">
+              <i class="fa-solid fa-camera"></i>
+              <span id="camera-btn-label">Open Rear Camera</span>
+            </button>
+
             <label class="cursor-pointer px-3.5 py-2 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-medium text-slate-200 transition flex items-center gap-2">
-              <i class="fa-solid fa-upload text-cyan-400"></i>
-              <span>Upload Vinyl / Label</span>
+              <i class="fa-solid fa-upload text-amber-400"></i>
+              <span>Upload Photo</span>
               <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)" />
             </label>
 
-            <button onclick="toggleCamera()" id="camera-toggle-btn" class="px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-xs font-medium text-cyan-300 transition flex items-center gap-2">
-              <i class="fa-solid fa-camera"></i>
-              <span id="camera-btn-label">Live Camera</span>
-            </button>
-
-            <button onclick="runScanPipeline()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-booth-950 text-xs font-bold transition shadow-lg shadow-amber-500/20 flex items-center gap-2">
-              <i class="fa-solid fa-bolt"></i>
-              <span>Re-Scan &amp; Analyze</span>
+            <button onclick="runOcrOnCurrentCanvas()" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-booth-950 text-xs font-bold transition shadow-lg shadow-amber-500/20 flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Run OCR on Frame</span>
             </button>
           </div>
         </div>
 
+        <!-- Prominent Manual Catalog Number / Runout Matrix Search Bar -->
+        <form onsubmit="handleManualDiscogsSearch(event)" class="flex flex-col sm:flex-row gap-2 pt-3 border-t border-booth-800">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-amber-400 text-xs"></i>
+            <input
+              type="text"
+              id="discogs-search-input"
+              placeholder="Enter Catalog #, Label, Artist, or Matrix (e.g. OSTGUT045, BASIC001, M-PLANT 312, Atjazz)..."
+              class="w-full bg-booth-950 border border-booth-700 focus:border-amber-500 rounded-xl pl-9 pr-3 py-2.5 text-xs sm:text-sm font-mono text-white placeholder-slate-500 focus:outline-none"
+            />
+          </div>
+          <button type="submit" id="discogs-search-btn" class="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-booth-950 font-bold text-xs sm:text-sm transition flex items-center justify-center gap-2 shrink-0 shadow-lg shadow-cyan-500/15">
+            <i class="fa-solid fa-record-vinyl"></i>
+            <span>Search Discogs Vinyl</span>
+          </button>
+        </form>
+
+        <!-- OCR Live Progress Bar (Visible during Tesseract scan) -->
+        <div id="ocr-progress-wrapper" class="hidden bg-booth-950 border border-cyan-500/40 rounded-xl p-3 space-y-1.5">
+          <div class="flex items-center justify-between text-xs font-mono">
+            <span id="ocr-progress-status" class="text-cyan-300 flex items-center gap-2">
+              <i class="fa-solid fa-spinner fa-spin"></i> Running Tesseract.js Center-Label OCR...
+            </span>
+            <span id="ocr-progress-pct" class="text-amber-400 font-bold">0%</span>
+          </div>
+          <div class="w-full h-2 bg-booth-800 rounded-full overflow-hidden">
+            <div id="ocr-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-amber-400 transition-all duration-150" style="width: 0%"></div>
+          </div>
+        </div>
+
+        <!-- Live Discogs Search Results Drawer (Populated after OCR or Manual Search) -->
+        <div id="discogs-results-panel" class="hidden bg-booth-950 border border-booth-700 rounded-xl p-3.5 space-y-3">
+          <div class="flex items-center justify-between">
+            <span id="discogs-results-header" class="text-xs font-mono uppercase text-cyan-400 font-semibold">Discogs Vinyl Matches</span>
+            <button onclick="document.getElementById('discogs-results-panel').classList.add('hidden')" class="text-xs font-mono text-slate-400 hover:text-white">
+              Hide Results <i class="fa-solid fa-xmark ml-1"></i>
+            </button>
+          </div>
+          <div id="discogs-results-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5 max-h-72 overflow-y-auto pr-1">
+            <!-- Populated dynamically from Discogs API -->
+          </div>
+        </div>
+
         <!-- Underground Preset Pills -->
-        <div class="mt-4 pt-4 border-t border-booth-800 flex flex-wrap items-center gap-2">
-          <span class="text-[11px] font-mono uppercase text-slate-500 mr-1">Test Pressings &amp; Samples:</span>
+        <div class="pt-2 border-t border-booth-800 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-mono uppercase text-slate-500 mr-1">Demo Pressings:</span>
           <button onclick="loadSampleRecord('detroit')" id="sample-btn-detroit" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/50 transition">
-            01. M-PLANT / Stamped Detroit 12"
+            01. M-PLANT-312
           </button>
           <button onclick="loadSampleRecord('dubtechno')" id="sample-btn-dubtechno" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
-            02. BASIC-04 / Berlin Dub Techno
+            02. BASIC-04
           </button>
           <button onclick="loadSampleRecord('whitelabel')" id="sample-btn-whitelabel" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
-            03. W/L-909 / Hand-Stamped Deep House
+            03. W/L-909 Stamp
           </button>
           <button onclick="loadSampleRecord('minimal')" id="sample-btn-minimal" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
-            04. PERLON-112 / Micro-Groove Minimal
+            04. PERL-112
           </button>
         </div>
       </div>
@@ -203,16 +276,16 @@
               <div class="flex items-center gap-2">
                 <span class="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold">Optical Platter View</span>
                 <span id="scan-status-pill" class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
-                  MATCHED (98.4%)
+                  READY
                 </span>
               </div>
 
               <div class="flex items-center gap-2 text-xs">
                 <button onclick="toggleOverlay('label')" id="btn-toggle-label" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[11px]">
-                  <i class="fa-solid fa-bullseye mr-1"></i>Label Ring
+                  <i class="fa-solid fa-bullseye mr-1"></i>Label Reticle
                 </button>
                 <button onclick="toggleOverlay('grooves')" id="btn-toggle-grooves" class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[11px]">
-                  <i class="fa-solid fa-record-vinyl mr-1"></i>Groove Breaks
+                  <i class="fa-solid fa-record-vinyl mr-1"></i>Groove Rings
                 </button>
                 <button onclick="toggleSpin()" id="btn-toggle-spin" class="px-2.5 py-1 rounded-lg bg-booth-800 text-slate-300 border border-booth-700 font-mono text-[11px] hover:text-white">
                   <i class="fa-solid fa-rotate mr-1"></i>Spin
@@ -221,21 +294,24 @@
             </div>
 
             <!-- Live Camera Video Feed (Hidden until activated) -->
-            <div id="camera-container" class="hidden relative rounded-xl overflow-hidden bg-black aspect-square max-h-[460px] mx-auto border border-cyan-500/50 mb-4">
-              <video id="camera-video" autoplay playsinline class="w-full h-full object-cover"></video>
-              <!-- Alignment Reticle -->
+            <div id="camera-container" class="hidden relative rounded-xl overflow-hidden bg-black aspect-square max-h-[460px] mx-auto border-2 border-cyan-500/70 mb-4">
+              <video id="camera-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+              <!-- Center-Label Alignment Reticle -->
               <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
-                <div class="w-64 h-64 sm:w-72 sm:h-72 rounded-full border-2 border-dashed border-cyan-400/80 flex items-center justify-center">
-                  <div class="w-24 h-24 rounded-full border border-amber-400/90 flex items-center justify-center">
-                    <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                <div class="w-60 h-60 sm:w-72 sm:h-72 rounded-full border-2 border-dashed border-cyan-400/90 flex items-center justify-center shadow-[0_0_0_9999px_rgba(9,10,13,0.45)]">
+                  <div class="w-16 h-16 rounded-full border border-amber-400/90 flex items-center justify-center">
+                    <div class="w-2.5 h-2.5 rounded-full bg-amber-400"></div>
                   </div>
                 </div>
+                <span class="absolute top-3 bg-booth-950/85 text-cyan-300 font-mono text-[11px] px-3 py-1 rounded-full border border-cyan-500/40">
+                  Center vinyl label inside cyan circle
+                </span>
               </div>
               <div class="absolute bottom-3 inset-x-0 flex justify-center gap-3">
-                <button onclick="captureCameraFrame()" class="px-4 py-2 rounded-xl bg-amber-500 text-booth-950 font-bold text-xs shadow-lg">
-                  <i class="fa-solid fa-camera-retro mr-1.5"></i>Snap &amp; Analyze Label
+                <button onclick="captureCameraFrameAndRunOcr()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-booth-950 font-bold text-xs shadow-lg flex items-center gap-1.5">
+                  <i class="fa-solid fa-camera-retro"></i>Snap &amp; Run OCR
                 </button>
-                <button onclick="toggleCamera()" class="px-3 py-2 rounded-xl bg-booth-900/90 text-slate-300 border border-booth-700 text-xs">
+                <button onclick="toggleCamera()" class="px-3.5 py-2.5 rounded-xl bg-booth-900/90 text-slate-300 border border-booth-700 text-xs">
                   Cancel
                 </button>
               </div>
@@ -249,100 +325,124 @@
               <div id="groove-hud" class="absolute bottom-3 left-3 right-3 bg-booth-950/90 backdrop-blur-md border border-booth-700/90 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
                 <div class="flex items-center gap-3">
                   <span class="flex items-center gap-1.5 text-amber-400">
-                    <span class="w-2.5 h-2.5 rounded-full border-2 border-amber-400 inline-block"></span> Silent Lead-In Band
+                    <span class="w-2.5 h-2.5 rounded-full border-2 border-amber-400 inline-block"></span> Track Lead-In Band
                   </span>
                   <span class="flex items-center gap-1.5 text-cyan-400">
-                    <span class="w-2.5 h-2.5 rounded-full border-2 border-dashed border-cyan-400 inline-block"></span> Center Label ROI
+                    <span class="w-2.5 h-2.5 rounded-full border-2 border-dashed border-cyan-400 inline-block"></span> OCR Crop Zone
                   </span>
                 </div>
                 <span id="hud-rpm-indicator" class="text-slate-300 font-semibold">33 ⅓ RPM // SIDE A</span>
               </div>
             </div>
 
-            <!-- Simulated Polar-to-Cartesian Unwrapped Rim Text Strip -->
-            <div class="mt-4 bg-booth-950 border border-booth-800 rounded-xl p-3">
-              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-2">
+            <!-- Real Tesseract.js OCR Readout & Editable Query Strip -->
+            <div class="mt-4 bg-booth-950 border border-booth-800 rounded-xl p-3 space-y-2.5">
+              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400">
                 <span class="flex items-center gap-1.5 text-cyan-400 font-semibold">
-                  <i class="fa-solid fa-wave-square"></i> POLAR-TO-CARTESIAN UNWRAPPED RIM &amp; MATRIX OCR
+                  <i class="fa-solid fa-font"></i> EXTRACTED LABEL OCR TEXT (EDITABLE)
                 </span>
-                <span>360° Radial Strip</span>
+                <button onclick="searchFromOcrBox()" class="text-amber-400 hover:text-amber-300 underline">
+                  Search This Text on Discogs &rarr;
+                </button>
               </div>
-              <div class="relative bg-booth-900 border border-cyan-500/30 rounded-lg px-3 py-2 font-mono text-xs text-cyan-200 tracking-widest overflow-x-auto whitespace-nowrap">
-                <span id="unwrapped-ocr-strip">CAT: M-PLANT-312 // SIDE A // 33 1/3 RPM // MATRIX: MP312-A1 NSC DETROIT // STEREO</span>
-              </div>
-              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 text-[11px] font-mono">
+              <input
+                type="text"
+                id="unwrapped-ocr-strip"
+                value="M-PLANT-312 // SIDE A // 33 1/3 RPM // MP312-A1 NSC DETROIT"
+                class="w-full bg-booth-900 border border-cyan-500/30 focus:border-amber-500 rounded-lg px-3 py-2 font-mono text-xs text-cyan-200 tracking-wide focus:outline-none"
+              />
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-mono">
                 <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
-                  <span class="text-slate-500 block text-[10px]">CATALOG NO.</span>
-                  <span id="ocr-catno" class="text-amber-400 font-semibold">M-PLANT-312</span>
+                  <span class="text-slate-500 block text-[10px]">PARSED CATNO</span>
+                  <span id="ocr-catno" class="text-amber-400 font-semibold truncate block">M-PLANT-312</span>
                 </div>
                 <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
-                  <span class="text-slate-500 block text-[10px]">DEADWAX MATRIX</span>
-                  <span id="ocr-matrix" class="text-slate-200 font-semibold">MP312-A1 NSC</span>
+                  <span class="text-slate-500 block text-[10px]">MATRIX / RUNOUT</span>
+                  <span id="ocr-matrix" class="text-slate-200 font-semibold truncate block">MP312-A1 NSC</span>
                 </div>
                 <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
-                  <span class="text-slate-500 block text-[10px]">PRESSING SPEED</span>
-                  <span id="ocr-rpm" class="text-cyan-400 font-semibold">33 ⅓ RPM</span>
+                  <span class="text-slate-500 block text-[10px]">FORMAT / RPM</span>
+                  <span id="ocr-rpm" class="text-cyan-400 font-semibold truncate block">33 ⅓ RPM</span>
                 </div>
                 <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
-                  <span class="text-slate-500 block text-[10px]">DETECTED SIDE</span>
-                  <span id="ocr-side" class="text-emerald-400 font-semibold">SIDE A (2 Cuts)</span>
+                  <span class="text-slate-500 block text-[10px]">DETECTED CUTS</span>
+                  <span id="ocr-side" class="text-emerald-400 font-semibold truncate block">SIDE A (2 Cuts)</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- RIGHT COLUMN (5 Cols): Recognition Pipeline Results + Live BPM/Key Turntable Analyzer -->
+        <!-- RIGHT COLUMN (5 Cols): Discogs Release Card + Live BPM/Key Turntable Analyzer -->
         <div class="lg:col-span-5 space-y-5">
 
-          <!-- Multi-Layer Recognition Cascade Card -->
+          <!-- Discogs Release & Tracklist Card -->
           <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
             <div class="flex items-center justify-between">
-              <h3 class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">Recognition Cascade Telemetry</h3>
-              <span id="cascade-latency" class="text-[11px] font-mono text-emerald-400">Resolved in 340ms</span>
-            </div>
-
-            <!-- 4-Layer Pipeline Status Badges -->
-            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
-              <div id="badge-layer-1" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
-                <span class="text-slate-300">1. Edge OCR</span>
-                <span class="text-emerald-400 font-bold">HIT</span>
-              </div>
-              <div id="badge-layer-2" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
-                <span class="text-slate-300">2. OpenCLIP ViT</span>
-                <span class="text-emerald-400 font-bold">0.94 SIM</span>
-              </div>
-              <div id="badge-layer-3" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
-                <span class="text-slate-300">3. Discogs Dump</span>
-                <span class="text-emerald-400 font-bold">SYNCED</span>
-              </div>
-              <div id="badge-layer-4" class="p-2 rounded-xl bg-booth-850 border border-booth-700 flex items-center justify-between">
-                <span class="text-slate-400">4. AudD Audio</span>
-                <span class="text-slate-500 font-bold">STANDBY</span>
-              </div>
+              <h3 class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">Identified Vinyl Pressing</h3>
+              <span id="cascade-latency" class="text-[11px] font-mono text-emerald-400">Discogs Ready</span>
             </div>
 
             <!-- Identified Release Card -->
             <div class="bg-booth-950 border border-booth-800 rounded-xl p-3.5 space-y-3">
-              <div class="flex items-start justify-between gap-3">
-                <div>
-                  <span id="res-label-tag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">M-Plant // Detroit</span>
-                  <h4 id="res-title" class="text-base font-bold text-white mt-1.5">Robert Hood — Minimal Nation (Re-Issue)</h4>
-                  <p id="res-genre" class="text-xs text-slate-400">Detroit Techno • Minimal • 1994 / 2019</p>
+              <div class="flex items-start gap-3">
+                <img
+                  id="res-cover-thumb"
+                  src="https://placehold.co/96x96/14171f/f59e0b?text=12%22"
+                  onerror="this.src='https://placehold.co/96x96/14171f/f59e0b?text=12%22'"
+                  alt="Vinyl Cover"
+                  class="w-16 h-16 rounded-lg object-cover border border-booth-700 shrink-0 bg-booth-900"
+                />
+                <div class="min-w-0 flex-1">
+                  <span id="res-label-tag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-block truncate max-w-full">M-Plant // M-PLANT-312</span>
+                  <h4 id="res-title" class="text-sm sm:text-base font-bold text-white mt-1 leading-snug">Robert Hood — Minimal Nation</h4>
+                  <p id="res-genre" class="text-xs text-slate-400 truncate">Detroit Techno • Minimal • 1994</p>
                 </div>
-                <div class="text-right font-mono shrink-0">
-                  <div id="res-key-badge" class="text-sm font-bold px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">8A</div>
-                  <div id="res-bpm-badge" class="text-xs text-amber-400 mt-1 font-semibold">130.0 BPM</div>
+              </div>
+
+              <!-- Editable DJ Metadata (Camelot Key + BPM + Physical Slot) -->
+              <div class="grid grid-cols-3 gap-2 pt-2 border-t border-booth-800 font-mono text-xs">
+                <div>
+                  <label class="text-[10px] text-slate-500 block mb-1">CAMELOT KEY</label>
+                  <select id="scan-key-select" onchange="updateCurrentRecordMeta()" class="w-full bg-booth-900 border border-booth-700 rounded-lg px-2 py-1.5 text-cyan-300 font-bold focus:outline-none focus:border-cyan-500">
+                    <option value="1A">1A (Abm)</option>
+                    <option value="2A">2A (Ebm)</option>
+                    <option value="3A">3A (Bbm)</option>
+                    <option value="4A">4A (Fm)</option>
+                    <option value="5A">5A (Cm)</option>
+                    <option value="6A">6A (Gm)</option>
+                    <option value="7A">7A (Dm)</option>
+                    <option value="8A" selected>8A (Am)</option>
+                    <option value="9A">9A (Em)</option>
+                    <option value="10A">10A (Bm)</option>
+                    <option value="11A">11A (F#m)</option>
+                    <option value="12A">12A (Dbm)</option>
+                    <option value="8B">8B (C Maj)</option>
+                    <option value="9B">9B (G Maj)</option>
+                    <option value="10B">10B (D Maj)</option>
+                    <option value="11B">11B (A Maj)</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-500 block mb-1">NATIVE BPM</label>
+                  <input type="number" step="0.1" id="scan-bpm-input" value="130.0" oninput="syncManualBpmInput(this.value)" class="w-full bg-booth-900 border border-booth-700 rounded-lg px-2 py-1.5 text-amber-400 font-bold focus:outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label class="text-[10px] text-slate-500 block mb-1">VINYL RPM</label>
+                  <select id="scan-rpm-select" onchange="updateCurrentRecordMeta()" class="w-full bg-booth-900 border border-booth-700 rounded-lg px-2 py-1.5 text-slate-200 focus:outline-none focus:border-amber-500">
+                    <option value="33 ⅓ RPM">33 ⅓ RPM</option>
+                    <option value="45 RPM">45 RPM</option>
+                  </select>
                 </div>
               </div>
 
               <!-- Groove Position Tracklist Breakdown -->
               <div class="space-y-1.5 pt-2 border-t border-booth-800">
                 <div class="text-[10px] font-mono uppercase text-slate-500 flex justify-between">
-                  <span>Groove Position &amp; Tracklist</span>
-                  <span>Radial Offset / Duration</span>
+                  <span>Vinyl Tracklist (A1 / B1 Positions)</span>
+                  <span>Groove Band / Time</span>
                 </div>
-                <div id="res-tracklist" class="space-y-1.5 text-xs">
+                <div id="res-tracklist" class="space-y-1.5 text-xs max-h-48 overflow-y-auto pr-1">
                   <!-- Populated dynamically -->
                 </div>
               </div>
@@ -367,9 +467,9 @@
             <div class="flex items-center justify-between">
               <div>
                 <h3 class="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold flex items-center gap-1.5">
-                  <i class="fa-solid fa-wave-square"></i> Live Audio BPM, Key &amp; Pitch Deck
+                  <i class="fa-solid fa-wave-square"></i> Live Audio BPM &amp; Pitch Deck
                 </h3>
-                <p class="text-[11px] text-slate-400">Mic onset pulse detector, manual tap tempo &amp; ±8% turntable pitch shift.</p>
+                <p class="text-[11px] text-slate-400">Mic onset pulse detector, tap tempo &amp; ±8% pitch shift.</p>
               </div>
               <button onclick="toggleMicAnalyzer()" id="mic-btn" class="px-3 py-1.5 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-mono text-cyan-300 transition flex items-center gap-1.5">
                 <i class="fa-solid fa-microphone"></i>
@@ -380,11 +480,11 @@
             <!-- Audio Energy Visualizer Bar -->
             <div class="bg-booth-950 border border-booth-800 rounded-xl p-3">
               <div class="flex items-center justify-between mb-2">
-                <span class="text-[10px] font-mono text-slate-500 uppercase">Essentia Onset / Beat Energy</span>
+                <span class="text-[10px] font-mono text-slate-500 uppercase">Booth Monitor Beat Energy</span>
                 <span id="mic-status-text" class="text-[10px] font-mono text-slate-400">Standby (Click Mic or Tap)</span>
               </div>
               <div id="audio-bars" class="h-10 flex items-end gap-1">
-                <!-- 24 visualizer bars generated via JS -->
+                <!-- 28 visualizer bars generated via JS -->
               </div>
             </div>
 
@@ -404,7 +504,7 @@
               </button>
             </div>
 
-            <!-- Turntable Pitch Fader (-8% to +8%) & RPM Toggle -->
+            <!-- Turntable Pitch Fader (-8% to +8%) -->
             <div class="bg-booth-950 border border-booth-800 rounded-xl p-3 space-y-2.5">
               <div class="flex items-center justify-between text-xs font-mono">
                 <span class="text-slate-400">Turntable Pitch Fader</span>
@@ -417,7 +517,7 @@
               <div class="flex justify-between text-[10px] font-mono text-slate-500">
                 <span>-8.0%</span>
                 <span>-4.0%</span>
-                <span>0.0% (Quartz Lock)</span>
+                <span>0.0% (Quartz)</span>
                 <span>+4.0%</span>
                 <span>+8.0%</span>
               </div>
@@ -469,6 +569,9 @@
             <option value="Deep House">Deep House</option>
             <option value="Soulful House">Soulful House</option>
             <option value="Minimal">Minimal / Microhouse</option>
+            <option value="Techno">Techno</option>
+            <option value="House">House</option>
+            <option value="Electro">Electro</option>
           </select>
 
           <!-- Camelot Harmonic Key Filter -->
@@ -574,29 +677,27 @@
       },
       whitelabel: {
         id: 'wl-909',
-        catno: 'W/L-909-LTD',
+        catno: 'W/L-909',
         label: 'White Label Stamp',
-        origin: 'Chicago / NY',
-        artist: 'Unknown Artist (Moody Dubs)',
-        title: 'Late Night Transit EP (Hand-Stamped)',
-        genre: 'Deep House',
-        year: '2023',
-        rpm: '33 ⅓ RPM',
-        side: 'SIDE B',
-        matrix: 'WL909-B1 MASTERDISK',
-        unwrappedText: '[HAND STAMPED INK] W/L-909-LTD // 33 RPM // DEADWAX: WL909-B1 MASTERDISK',
-        bpm: 123.5,
+        origin: 'London, UK',
+        artist: 'Unknown Artist',
+        title: '909 Warehouse Dub (Hand-Stamped)',
+        genre: 'Electro',
+        year: '2022',
+        rpm: '45 RPM',
+        side: 'SIDE A',
+        matrix: 'WL909-A1 MPO',
+        unwrappedText: 'HAND STAMPED WHITE LABEL // 909 // 45 RPM // RUNOUT: WL909-A1 MPO',
+        bpm: 134.0,
         key: '9A',
         location: 'Gig Bag - Slot A',
         labelColor: '#f8fafc',
         labelTextColor: '#b91c1c',
         stampStyle: 'STAMP',
-        confidence: '94.2%',
+        confidence: '94.1%',
         clipSim: '0.89 SIM',
         tracks: [
-          { pos: 'B1', title: 'Transit Chord Dub', duration: '6:45', startPct: 0, endPct: 48, bpm: 123.5, key: '9A', tag: 'Warm-Up' },
-          { pos: 'B2', title: 'Warehouse Rhodes Tool', duration: '4:15', startPct: 50, endPct: 76, bpm: 124.0, key: '9A', tag: 'Transition Tool' },
-          { pos: 'B3', title: 'Subway Beats (Accapella)', duration: '2:50', startPct: 78, endPct: 96, bpm: 123.5, key: '9A', tag: 'B-Side Weapon' }
+          { pos: 'A1', title: 'Untitled 909 Acid Tool', duration: '6:24', startPct: 0, endPct: 92, bpm: 134.0, key: '9A', tag: 'B-Side Weapon' }
         ]
       },
       minimal: {
@@ -607,28 +708,31 @@
         artist: 'Zip & Sammy Dee',
         title: 'Pantytec — Elastobabe',
         genre: 'Minimal',
-        year: '2018',
+        year: '2016',
         rpm: '33 ⅓ RPM',
         side: 'SIDE A',
-        matrix: 'PERL112-A1 MPO',
-        unwrappedText: 'PERLON // SUPERLONGEVITY // PERL-112 // 33 1/3 RPM // MATRIX: PERL112-A1 MPO',
-        bpm: 127.0,
+        matrix: 'PERL112-A1',
+        unwrappedText: 'PERLON FRANKFURT // CAT: PERL-112 // 33 1/3 RPM // MATRIX: PERL112-A1',
+        bpm: 125.0,
         key: '6A',
         location: 'Kallax Shelf B2',
-        labelColor: '#f59e0b',
-        labelTextColor: '#090a0d',
-        stampStyle: 'PERLON',
-        confidence: '99.1%',
-        clipSim: '0.96 SIM',
+        labelColor: '#fde047',
+        labelTextColor: '#1e1b4b',
+        stampStyle: 'MINIMAL',
+        confidence: '96.8%',
+        clipSim: '0.91 SIM',
         tracks: [
-          { pos: 'A1', title: 'Elastobabe (Original)', duration: '7:20', startPct: 0, endPct: 56, bpm: 127.0, key: '6A', tag: 'Groove Lock' },
-          { pos: 'A2', title: 'Micro Dub Reduction', duration: '5:50', startPct: 58, endPct: 95, bpm: 127.0, key: '6A', tag: 'Afterhours' }
+          { pos: 'A1', title: 'Elastobabe (Original)', duration: '7:18', startPct: 0, endPct: 49, bpm: 125.0, key: '6A', tag: 'Warm-Up' },
+          { pos: 'A2', title: 'Elastobabe (Dub Cut)', duration: '6:50', startPct: 51, endPct: 95, bpm: 125.0, key: '6A', tag: 'Afterhours' }
         ]
       }
     };
 
-    // Initial DJ Crate Collection
-    let djCrate = [
+    // Initial DJ Crate Collection (Persisted in localStorage)
+    const STORAGE_KEY_CRATE = 'groovevault_dj_crate_v1';
+    const STORAGE_KEY_TOKEN = 'groovevault_discogs_token_v1';
+
+    const DEFAULT_CRATE = [
       SAMPLE_PRESSINGS.detroit,
       SAMPLE_PRESSINGS.dubtechno,
       SAMPLE_PRESSINGS.whitelabel,
@@ -674,6 +778,30 @@
       }
     ];
 
+    let djCrate = loadSavedCrate();
+    let discogsToken = localStorage.getItem(STORAGE_KEY_TOKEN) || '';
+
+    function loadSavedCrate() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_CRATE);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (e) {
+        console.warn('Could not load crate from localStorage', e);
+      }
+      return [...DEFAULT_CRATE];
+    }
+
+    function persistCrate() {
+      try {
+        localStorage.setItem(STORAGE_KEY_CRATE, JSON.stringify(djCrate));
+      } catch (e) {
+        console.warn('Could not persist crate to localStorage', e);
+      }
+    }
+
     // -------------------------------------------------------------------------
     // 2. APPLICATION STATE
     // -------------------------------------------------------------------------
@@ -701,14 +829,44 @@
     let expandedCrateIds = new Set(['mp-312']);
 
     // -------------------------------------------------------------------------
-    // 3. INITIALIZATION
+    // 3. INITIALIZATION & DISCOGS TOKEN MANAGEMENT
     // -------------------------------------------------------------------------
     window.onload = function () {
       initVisualizerBars();
+      syncTokenStatusUI();
       loadSampleRecord('detroit');
       renderCrate();
       startCanvasRenderLoop();
     };
+
+    function toggleTokenDrawer() {
+      const drawer = document.getElementById('discogs-token-drawer');
+      drawer.classList.toggle('hidden');
+      if (!drawer.classList.contains('hidden')) {
+        document.getElementById('discogs-token-input').value = discogsToken;
+      }
+    }
+
+    function saveDiscogsToken() {
+      const val = document.getElementById('discogs-token-input').value.trim();
+      discogsToken = val;
+      localStorage.setItem(STORAGE_KEY_TOKEN, discogsToken);
+      syncTokenStatusUI();
+      document.getElementById('discogs-token-drawer').classList.add('hidden');
+      showToast(discogsToken ? 'Discogs Personal Access Token saved locally.' : 'Discogs token cleared.', 'success');
+    }
+
+    function syncTokenStatusUI() {
+      const dot = document.getElementById('token-status-dot');
+      const label = document.getElementById('token-status-label');
+      if (discogsToken) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400';
+        label.textContent = 'Discogs Connected';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400 animate-pulse';
+        label.textContent = 'Set Discogs Token';
+      }
+    }
 
     function showToast(message, type = 'info') {
       const container = document.getElementById('toast-container');
@@ -749,7 +907,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // 4. SAMPLE RECORD LOADING & RECOGNITION PIPELINE SIMULATION
+    // 4. SAMPLE RECORD LOADING & RECOGNITION UI SYNC
     // -------------------------------------------------------------------------
     function loadSampleRecord(key) {
       uploadedImageObj = null;
@@ -768,46 +926,25 @@
       nativeBpm = currentRecord.bpm;
       resetPitch();
 
-      updateRecognitionUI(currentRecord, false);
+      updateRecognitionUI(currentRecord);
     }
 
-    function runScanPipeline() {
-      const pill = document.getElementById('scan-status-pill');
-      const latency = document.getElementById('cascade-latency');
-      pill.textContent = 'SCANNING...';
-      pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse';
-
-      setTimeout(() => {
-        const ms = Math.floor(260 + Math.random() * 140);
-        latency.textContent = `Resolved in ${ms}ms`;
-        pill.textContent = `MATCHED (${currentRecord.confidence})`;
-        pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
-        showToast(`Optical + pgvector lock: ${currentRecord.catno} (${currentRecord.title})`, 'success');
-      }, 450);
-    }
-
-    function updateRecognitionUI(rec, isCustomUpload) {
+    function updateRecognitionUI(rec) {
       document.getElementById('hud-rpm-indicator').textContent = `${rec.rpm} // ${rec.side}`;
-      document.getElementById('unwrapped-ocr-strip').textContent = rec.unwrappedText;
-      document.getElementById('ocr-catno').textContent = rec.catno;
-      document.getElementById('ocr-matrix').textContent = rec.matrix;
-      document.getElementById('ocr-rpm').textContent = rec.rpm;
-      document.getElementById('ocr-side').textContent = `${rec.side} (${rec.tracks.length} Cut${rec.tracks.length > 1 ? 's' : ''})`;
+      document.getElementById('unwrapped-ocr-strip').value = rec.unwrappedText || `${rec.catno} // ${rec.artist} - ${rec.title}`;
+      document.getElementById('ocr-catno').textContent = rec.catno || 'N/A';
+      document.getElementById('ocr-matrix').textContent = rec.matrix || 'N/A';
+      document.getElementById('ocr-rpm').textContent = rec.rpm || '33 ⅓ RPM';
+      document.getElementById('ocr-side').textContent = `${rec.side || 'VINYL'} (${rec.tracks.length} Cut${rec.tracks.length > 1 ? 's' : ''})`;
 
-      document.getElementById('res-label-tag').textContent = `${rec.label} // ${rec.origin}`;
+      document.getElementById('res-label-tag').textContent = `${rec.label} // ${rec.catno}`;
       document.getElementById('res-title').textContent = `${rec.artist} — ${rec.title}`;
       document.getElementById('res-genre').textContent = `${rec.genre} • ${rec.year}`;
-      document.getElementById('res-key-badge').textContent = rec.key;
-      document.getElementById('res-bpm-badge').textContent = `${rec.bpm.toFixed(1)} BPM`;
+      document.getElementById('res-cover-thumb').src = rec.coverUrl || 'https://placehold.co/96x96/14171f/f59e0b?text=12%22';
 
-      const l4 = document.getElementById('badge-layer-4');
-      if (isCustomUpload) {
-        l4.className = 'p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-between';
-        l4.innerHTML = `<span class="text-cyan-200">4. AudD Audio</span><span class="text-cyan-400 font-bold">READY</span>`;
-      } else {
-        l4.className = 'p-2 rounded-xl bg-booth-850 border border-booth-700 flex items-center justify-between';
-        l4.innerHTML = `<span class="text-slate-400">4. AudD Audio</span><span class="text-slate-500 font-bold">STANDBY</span>`;
-      }
+      document.getElementById('scan-key-select').value = rec.key || '8A';
+      document.getElementById('scan-bpm-input').value = (rec.bpm || 128.0).toFixed(1);
+      document.getElementById('scan-rpm-select').value = rec.rpm === '45 RPM' ? '45 RPM' : '33 ⅓ RPM';
 
       // Render groove position tracklist
       const tracklistEl = document.getElementById('res-tracklist');
@@ -816,18 +953,33 @@
           <div class="flex items-center gap-2 min-w-0">
             <span class="font-mono font-bold text-amber-400 shrink-0">${t.pos}</span>
             <span class="text-slate-200 truncate">${t.title}</span>
-            <span class="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-booth-800 text-slate-400">${t.tag}</span>
           </div>
           <div class="flex items-center gap-2 font-mono text-[11px] shrink-0 ml-2">
             <span class="text-cyan-400">${t.startPct}%–${t.endPct}%</span>
-            <span class="text-slate-400">${t.duration}</span>
+            <span class="text-slate-400">${t.duration || '--:--'}</span>
           </div>
         </div>
       `).join('');
     }
 
+    function updateCurrentRecordMeta() {
+      currentRecord.key = document.getElementById('scan-key-select').value;
+      currentRecord.rpm = document.getElementById('scan-rpm-select').value;
+      document.getElementById('hud-rpm-indicator').textContent = `${currentRecord.rpm} // ${currentRecord.side || 'SIDE A'}`;
+      document.getElementById('ocr-rpm').textContent = currentRecord.rpm;
+    }
+
+    function syncManualBpmInput(val) {
+      const parsed = parseFloat(val);
+      if (!isNaN(parsed) && parsed > 40 && parsed < 220) {
+        nativeBpm = parsed;
+        currentRecord.bpm = parsed;
+        recalculateBpmDisplay();
+      }
+    }
+
     // -------------------------------------------------------------------------
-    // 5. IMAGE UPLOAD & LIVE CAMERA CAPTURE
+    // 5. REAL TESSERACT.JS CAMERA / PHOTO OCR & LIVE DISCOGS API SEARCH
     // -------------------------------------------------------------------------
     function handleImageUpload(event) {
       const file = event.target.files[0];
@@ -837,31 +989,8 @@
         const img = new Image();
         img.onload = function () {
           uploadedImageObj = img;
-          // Create a simulated custom white-label recognition result for uploaded photo
-          currentRecord = {
-            id: 'custom-' + Date.now(),
-            catno: 'CUSTOM-12IN',
-            label: 'Detected Center Label',
-            origin: 'Optical Capture',
-            artist: 'Unmarked White Label / Test Press',
-            title: file.name.replace(/\.[^/.]+$/, '').slice(0, 28) || 'Custom Vinyl Scan',
-            genre: 'Dub Techno',
-            year: '2026',
-            rpm: '33 ⅓ RPM',
-            side: 'SIDE A',
-            matrix: 'ETCH-A1 // RADIAL-SCAN',
-            unwrappedText: 'POLAR UNWRAP ACTIVE // DETECTED GROOVE RINGS: 2 // RUNOUT MATRIX PARSED',
-            bpm: nativeBpm,
-            key: '8A',
-            location: document.getElementById('scan-location-select').value,
-            confidence: '91.6%',
-            tracks: [
-              { pos: 'A1', title: 'Outer Groove Cut (Detected)', duration: '6:30', startPct: 0, endPct: 51, bpm: nativeBpm, key: '8A', tag: 'Opener' },
-              { pos: 'A2', title: 'Inner Groove Cut (Detected)', duration: '5:45', startPct: 53, endPct: 95, bpm: nativeBpm, key: '8A', tag: 'Peak Tool' }
-            ]
-          };
-          updateRecognitionUI(currentRecord, true);
-          runScanPipeline();
+          // Run real Tesseract OCR on the uploaded vinyl label photo
+          extractTextWithTesseract(img, true);
         };
         img.src = e.target.result;
       };
@@ -879,37 +1008,375 @@
         cameraStream = null;
         camContainer.classList.add('hidden');
         canvasWrapper.classList.remove('hidden');
-        btnLabel.textContent = 'Live Camera';
+        btnLabel.textContent = 'Open Rear Camera';
         return;
       }
 
       try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 1280 } }
+        });
         video.srcObject = cameraStream;
         camContainer.classList.remove('hidden');
         canvasWrapper.classList.add('hidden');
         btnLabel.textContent = 'Close Camera';
-        showToast('Align center label inside the cyan reticle and snap.', 'info');
+        showToast('Center the vinyl label inside the cyan circle and tap Snap & Run OCR.', 'info');
       } catch (err) {
-        showToast('Camera unavailable or permission denied — use Upload or Sample Pressings.', 'warn');
+        showToast('Camera blocked or unavailable — check Safari camera settings or use Upload Photo.', 'warn');
       }
     }
 
-    function captureCameraFrame() {
+    function captureCameraFrameAndRunOcr() {
       const video = document.getElementById('camera-video');
       if (!video.videoWidth) return;
+
+      // Capture full square frame from rear camera
+      const side = Math.min(video.videoWidth, video.videoHeight);
+      const sx = (video.videoWidth - side) / 2;
+      const sy = (video.videoHeight - side) / 2;
+
       const offCanvas = document.createElement('canvas');
-      offCanvas.width = video.videoWidth;
-      offCanvas.height = video.videoHeight;
-      offCanvas.getContext('2d').drawImage(video, 0, 0);
+      offCanvas.width = side;
+      offCanvas.height = side;
+      offCanvas.getContext('2d').drawImage(video, sx, sy, side, side, 0, 0, side, side);
 
       const img = new Image();
       img.onload = function () {
         uploadedImageObj = img;
         toggleCamera();
-        runScanPipeline();
+        // Run Tesseract OCR on the center-label crop
+        extractTextWithTesseract(img, true);
       };
-      img.src = offCanvas.toDataURL('image/jpeg', 0.9);
+      img.src = offCanvas.toDataURL('image/jpeg', 0.92);
+    }
+
+    function runOcrOnCurrentCanvas() {
+      const canvas = document.getElementById('vinyl-canvas');
+      const img = new Image();
+      img.onload = function () {
+        extractTextWithTesseract(img, false);
+      };
+      img.src = canvas.toDataURL('image/png');
+    }
+
+    // Center-Label Crop + High-Contrast Grayscale Preprocessing + Tesseract.js v5
+    async function extractTextWithTesseract(sourceImg, cropCenterReticle = true) {
+      if (typeof Tesseract === 'undefined') {
+        showToast('Tesseract OCR library still loading — try again in a second.', 'warn');
+        return;
+      }
+
+      const progressWrap = document.getElementById('ocr-progress-wrapper');
+      const progressStatus = document.getElementById('ocr-progress-status');
+      const progressPct = document.getElementById('ocr-progress-pct');
+      const progressBar = document.getElementById('ocr-progress-bar');
+      const pill = document.getElementById('scan-status-pill');
+
+      progressWrap.classList.remove('hidden');
+      pill.textContent = 'OCR SCANNING...';
+      pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse';
+
+      try {
+        // 1. Crop center 62% ROI where the paper vinyl label sits & boost contrast
+        const w = sourceImg.naturalWidth || sourceImg.width;
+        const h = sourceImg.naturalHeight || sourceImg.height;
+        const cropRatio = cropCenterReticle ? 0.62 : 0.45;
+        const cw = Math.floor(w * cropRatio);
+        const ch = Math.floor(h * cropRatio);
+        const cx = Math.floor((w - cw) / 2);
+        const cy = Math.floor((h - ch) / 2);
+
+        const procCanvas = document.createElement('canvas');
+        procCanvas.width = 640;
+        procCanvas.height = 640;
+        const pCtx = procCanvas.getContext('2d');
+        pCtx.drawImage(sourceImg, cx, cy, cw, ch, 0, 0, 640, 640);
+
+        // Apply high-contrast grayscale stretch so faint stamps & rim text pop
+        const imgData = pCtx.getImageData(0, 0, 640, 640);
+        const d = imgData.data;
+        for (let i = 0; i < d.length; i += 4) {
+          const gray = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+          // Contrast factor 1.55 centered around mid-gray 128
+          const contrasted = Math.min(255, Math.max(0, (gray - 128) * 1.55 + 128));
+          d[i] = d[i + 1] = d[i + 2] = contrasted;
+        }
+        pCtx.putImageData(imgData, 0, 0);
+
+        // 2. Run Tesseract v5 Recognition
+        const result = await Tesseract.recognize(procCanvas, 'eng', {
+          logger: m => {
+            if (m.status === 'recognizing text') {
+              const pct = Math.round((m.progress || 0) * 100);
+              progressPct.textContent = `${pct}%`;
+              progressBar.style.width = `${pct}%`;
+              progressStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Reading Center Label Text (${pct}%)...`;
+            } else {
+              progressStatus.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${m.status}...`;
+            }
+          }
+        });
+
+        const rawText = (result.data.text || '').replace(/\s+/g, ' ').trim();
+        progressWrap.classList.add('hidden');
+
+        if (!rawText || rawText.length < 2) {
+          pill.textContent = 'LOW OCR TEXT';
+          pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+          showToast('Glare or dark ink obscured text — type the Catalog # in the search bar above.', 'warn');
+          return;
+        }
+
+        // 3. Parse Catalog Numbers (e.g. OSTGUT045, M-PLANT-312, BASIC 04, WARP001)
+        const catMatch = rawText.match(/\b[A-Z]{2,10}[-_ ]?\d{1,5}[A-Z0-9]?\b/i);
+        const parsedCatno = catMatch ? catMatch[0].toUpperCase() : '';
+
+        // Clean noisy OCR symbols while keeping alphanumeric words
+        const cleanedQuery = parsedCatno || rawText.replace(/[^a-zA-Z0-9\s\-&]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 48);
+
+        document.getElementById('unwrapped-ocr-strip').value = rawText;
+        document.getElementById('ocr-catno').textContent = parsedCatno || cleanedQuery.slice(0, 16);
+        document.getElementById('discogs-search-input').value = cleanedQuery;
+
+        pill.textContent = 'OCR COMPLETE';
+        pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        showToast(`OCR extracted: "${cleanedQuery}" — querying Discogs...`, 'success');
+
+        // 4. Automatically trigger Discogs search with extracted catalog/keywords
+        await searchDiscogsVinyl(cleanedQuery);
+
+      } catch (err) {
+        progressWrap.classList.add('hidden');
+        pill.textContent = 'OCR ERROR';
+        showToast('OCR failed on this frame — try brighter light or manual catalog search.', 'warn');
+      }
+    }
+
+    function searchFromOcrBox() {
+      const q = document.getElementById('unwrapped-ocr-strip').value.trim();
+      if (!q) return;
+      document.getElementById('discogs-search-input').value = q;
+      searchDiscogsVinyl(q);
+    }
+
+    function handleManualDiscogsSearch(event) {
+      event.preventDefault();
+      const q = document.getElementById('discogs-search-input').value.trim();
+      if (!q) {
+        showToast('Type a catalog number, label, artist, or matrix string first.', 'warn');
+        return;
+      }
+      searchDiscogsVinyl(q);
+    }
+
+    // Live Discogs Database Search API (`GET /database/search`)
+    async function searchDiscogsVinyl(query) {
+      const btn = document.getElementById('discogs-search-btn');
+      const panel = document.getElementById('discogs-results-panel');
+      const list = document.getElementById('discogs-results-list');
+      const header = document.getElementById('discogs-results-header');
+      const latency = document.getElementById('cascade-latency');
+
+      if (!discogsToken) {
+        toggleTokenDrawer();
+        showToast('Paste your free Discogs Personal Access Token first to search live vinyl.', 'warn');
+        return;
+      }
+
+      const t0 = performance.now();
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i><span>Searching...</span>`;
+
+      try {
+        const url = new URL('https://api.discogs.com/database/search');
+        url.searchParams.set('q', query);
+        url.searchParams.set('type', 'release');
+        url.searchParams.set('format', 'Vinyl');
+        url.searchParams.set('per_page', '12');
+        url.searchParams.set('token', discogsToken);
+
+        const response = await fetch(url.toString(), {
+          headers: {
+            'Accept': 'application/vnd.discogs.v2.discogs+json'
+          }
+        });
+
+        if (response.status === 401) {
+          throw new Error('Invalid Discogs token. Open "Discogs Connected" in the header to verify it.');
+        }
+        if (response.status === 429) {
+          throw new Error('Discogs rate limit hit (60 req/min). Wait 15 seconds and retry.');
+        }
+        if (!response.ok) {
+          throw new Error(`Discogs API error (${response.status})`);
+        }
+
+        const data = await response.json();
+        const elapsed = Math.round(performance.now() - t0);
+        latency.textContent = `Discogs: ${elapsed}ms`;
+
+        const results = data.results || [];
+        panel.classList.remove('hidden');
+        header.textContent = `Discogs Vinyl Matches for "${query}" (${results.length})`;
+
+        if (results.length === 0) {
+          list.innerHTML = `
+            <div class="col-span-full text-xs text-slate-400 py-4 text-center font-mono">
+              No vinyl pressings found for "${query}". Try searching just the catalog number (e.g. "OSTGUT045") or artist name.
+            </div>`;
+          return;
+        }
+
+        list.innerHTML = results.map(item => {
+          const thumb = item.thumb || item.cover_image || 'https://placehold.co/80x80/14171f/f59e0b?text=12%22';
+          const catno = item.catno || 'NO-CAT';
+          const labelName = Array.isArray(item.label) ? item.label[0] : (item.label || 'Unknown Label');
+          const year = item.year || '----';
+          const style = Array.isArray(item.style) && item.style.length ? item.style[0] : (Array.isArray(item.genre) ? item.genre[0] : 'Electronic');
+
+          return `
+            <div onclick="loadDiscogsReleaseDetails(${item.id})" class="cursor-pointer bg-booth-900 hover:bg-booth-800 border border-booth-700 hover:border-amber-500/70 rounded-xl p-2.5 flex items-center gap-3 transition group">
+              <img
+                src="${thumb}"
+                onerror="this.src='https://placehold.co/80x80/14171f/f59e0b?text=12%22'"
+                alt="Release"
+                class="w-12 h-12 rounded-lg object-cover bg-booth-950 border border-booth-800 shrink-0"
+              />
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 text-[10px] font-mono">
+                  <span class="text-amber-400 font-bold truncate">${catno}</span>
+                  <span class="text-slate-500">•</span>
+                  <span class="text-slate-400 truncate">${labelName} (${year})</span>
+                </div>
+                <div class="text-xs font-semibold text-white group-hover:text-amber-300 truncate mt-0.5">${item.title}</div>
+                <div class="text-[10px] font-mono text-cyan-400 mt-0.5">${style} &bull; Tap to load A1/B1 tracklist</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // If exact 1 match or strong catalog match, auto-load the top release details
+        if (results.length === 1) {
+          await loadDiscogsReleaseDetails(results[0].id);
+        }
+
+      } catch (err) {
+        showToast(err.message || 'Failed to query Discogs API.', 'warn');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-record-vinyl"></i><span>Search Discogs Vinyl</span>`;
+      }
+    }
+
+    // Fetch Full Discogs Release Endpoint (`GET /releases/{id}`) for A1/B1 Tracklist & Runout Matrix
+    async function loadDiscogsReleaseDetails(releaseId) {
+      const pill = document.getElementById('scan-status-pill');
+      pill.textContent = 'LOADING RELEASE...';
+      pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse';
+
+      try {
+        const url = new URL(`https://api.discogs.com/releases/${releaseId}`);
+        url.searchParams.set('token', discogsToken);
+
+        const response = await fetch(url.toString(), {
+          headers: { 'Accept': 'application/vnd.discogs.v2.discogs+json' }
+        });
+        if (!response.ok) throw new Error(`Could not fetch release #${releaseId}`);
+
+        const rel = await response.json();
+
+        const artistName = (rel.artists && rel.artists.length)
+          ? rel.artists.map(a => a.name.replace(/\s*\(\d+\)$/, '')).join(', ')
+          : 'Various Artists';
+        const labelObj = (rel.labels && rel.labels.length) ? rel.labels[0] : {};
+        const labelName = labelObj.name ? labelObj.name.replace(/\s*\(\d+\)$/, '') : 'Unknown Label';
+        const catno = labelObj.catno || 'WHITE-LABEL';
+        const styles = (rel.styles && rel.styles.length) ? rel.styles : (rel.genres || ['Electronic']);
+        const primaryGenre = styles[0] || 'Electronic';
+        const year = rel.year ? String(rel.year) : 'Unknown';
+
+        // Extract runout matrix etching from identifiers if present
+        const matrixId = (rel.identifiers || []).find(id =>
+          (id.type || '').toLowerCase().includes('matrix') || (id.type || '').toLowerCase().includes('runout')
+        );
+        const matrixStr = matrixId ? matrixId.value : `${catno}-A1`;
+
+        // Detect RPM from format descriptions (e.g., "45 RPM", "33 ⅓ RPM")
+        const formatDescs = (rel.formats || []).flatMap(f => f.descriptions || []).join(' ');
+        const detectedRpm = formatDescs.includes('45') ? '45 RPM' : '33 ⅓ RPM';
+
+        // Map Discogs tracklist (filtering out headings) & compute proportional groove bands per side
+        const rawTracks = (rel.tracklist || []).filter(t => t.type_ === 'track' || !t.type_);
+        const sideATracks = rawTracks.filter(t => (t.position || '').toUpperCase().startsWith('A'));
+        const grooveBasis = sideATracks.length > 0 ? sideATracks : rawTracks.slice(0, 3);
+        const bandStep = Math.floor(94 / Math.max(1, grooveBasis.length));
+
+        const mappedTracks = rawTracks.map((t, idx) => {
+          const pos = (t.position || `T${idx + 1}`).toUpperCase();
+          // Compute radial groove percentages for Side A tracks (or first 3 tracks)
+          const sideIdx = grooveBasis.findIndex(gt => gt === t);
+          let startPct = 0;
+          let endPct = 94;
+          if (sideIdx >= 0) {
+            startPct = sideIdx * bandStep;
+            endPct = Math.min(96, (sideIdx + 1) * bandStep - 2);
+          } else {
+            startPct = (idx % 2) * 48;
+            endPct = startPct + 46;
+          }
+
+          return {
+            pos,
+            title: t.title || 'Untitled Cut',
+            duration: t.duration || '--:--',
+            startPct,
+            endPct,
+            bpm: nativeBpm,
+            key: document.getElementById('scan-key-select').value || '8A',
+            tag: pos.startsWith('B') ? 'B-Side Cut' : 'A-Side Cut'
+          };
+        });
+
+        const coverImg = (rel.images && rel.images.length)
+          ? (rel.images[0].uri150 || rel.images[0].uri)
+          : (rel.thumb || 'https://placehold.co/96x96/14171f/f59e0b?text=12%22');
+
+        currentRecord = {
+          id: `discogs-${rel.id}`,
+          discogsId: rel.id,
+          catno,
+          label: labelName,
+          origin: rel.country || 'Vinyl',
+          artist: artistName,
+          title: rel.title || 'Untitled Release',
+          genre: primaryGenre,
+          year,
+          rpm: detectedRpm,
+          side: 'SIDE A',
+          matrix: matrixStr,
+          unwrappedText: `${catno} // ${labelName.toUpperCase()} // ${detectedRpm} // MATRIX: ${matrixStr}`,
+          bpm: nativeBpm,
+          key: document.getElementById('scan-key-select').value || '8A',
+          location: document.getElementById('scan-location-select').value,
+          coverUrl: coverImg,
+          labelColor: '#f8fafc',
+          labelTextColor: '#0f172a',
+          tracks: mappedTracks.length ? mappedTracks : [
+            { pos: 'A1', title: rel.title, duration: '--:--', startPct: 0, endPct: 94, bpm: nativeBpm, key: '8A', tag: 'Vinyl Cut' }
+          ]
+        };
+
+        document.getElementById('ocr-matrix').textContent = matrixStr;
+        updateRecognitionUI(currentRecord);
+
+        pill.textContent = 'DISCOGS LOADED';
+        pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        showToast(`Loaded "${artistName} — ${rel.title}" (${mappedTracks.length} tracks)`, 'success');
+
+      } catch (err) {
+        pill.textContent = 'LOAD ERROR';
+        showToast(err.message || 'Error loading Discogs release details.', 'warn');
+      }
     }
 
     // -------------------------------------------------------------------------
@@ -1265,12 +1732,23 @@
     // -------------------------------------------------------------------------
     function addScannedRecordToCrate() {
       const chosenLocation = document.getElementById('scan-location-select').value;
-      const existingIdx = djCrate.findIndex(r => r.catno === currentRecord.catno);
+      const chosenKey = document.getElementById('scan-key-select').value;
+      const chosenRpm = document.getElementById('scan-rpm-select').value;
+      const existingIdx = djCrate.findIndex(r => r.id === currentRecord.id || r.catno === currentRecord.catno);
+
+      const updatedTracks = currentRecord.tracks.map(t => ({
+        ...t,
+        bpm: parseFloat(nativeBpm.toFixed(1)),
+        key: chosenKey
+      }));
 
       const recordToSave = {
         ...currentRecord,
         bpm: parseFloat(nativeBpm.toFixed(1)),
-        location: chosenLocation
+        key: chosenKey,
+        rpm: chosenRpm,
+        location: chosenLocation,
+        tracks: updatedTracks
       };
 
       if (existingIdx >= 0) {
@@ -1281,6 +1759,7 @@
         showToast(`Added ${recordToSave.catno} to "${chosenLocation}"`, 'success');
       }
 
+      persistCrate();
       document.getElementById('crate-count-badge').textContent = djCrate.length;
       renderCrate();
     }
@@ -1309,6 +1788,7 @@
       const rec = djCrate.find(r => r.id === id);
       if (rec) {
         rec.location = newLoc;
+        persistCrate();
         showToast(`Moved ${rec.catno} → ${newLoc}`, 'info');
       }
     }
