@@ -1,0 +1,1492 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GrooveVault // Underground Vinyl DJ Recognition & Crate Studio</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            booth: {
+              950: '#090a0d',
+              900: '#0f1116',
+              850: '#14171f',
+              800: '#1b1f2a',
+              700: '#272c3b',
+            },
+            amberGlow: '#f59e0b',
+            cyanScan: '#06b6d4',
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Custom scrollbar & booth tactile touches */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f1116;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #272c3b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #f59e0b;
+    }
+
+    @keyframes slowSpin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .vinyl-spin {
+      animation: slowSpin 14s linear infinite;
+    }
+    .vinyl-spin-paused {
+      animation-play-state: paused;
+    }
+
+    /* Range input styling for turntable pitch fader */
+    input[type="range"].pitch-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    input[type="range"].pitch-slider::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #06b6d4 0%, #272c3b 50%, #f59e0b 100%);
+    }
+    input[type="range"].pitch-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      height: 20px;
+      width: 12px;
+      border-radius: 3px;
+      background: #f8fafc;
+      border: 2px solid #f59e0b;
+      margin-top: -7px;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.6);
+    }
+  </style>
+</head>
+<body class="bg-booth-950 text-slate-200 font-sans antialiased min-h-screen flex flex-col selection:bg-amber-500/30 selection:text-amber-200">
+
+  <!-- Toast Notification Banner (No alert() used anywhere) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Top Navigation Header -->
+  <header class="sticky top-0 z-40 bg-booth-900/90 backdrop-blur-md border-b border-booth-700/80 px-4 sm:px-6 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-cyan-500 p-[2px] shadow-lg shadow-amber-500/10">
+          <div class="w-full h-full bg-booth-950 rounded-full flex items-center justify-center relative">
+            <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+            <div class="w-1 h-1 rounded-full bg-booth-950 absolute"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white">GROOVE<span class="text-amber-400">VAULT</span></h1>
+            <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/30">Booth OS v2.4</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden sm:block">Underground Electronic Vinyl Optical Scanner &amp; Harmonic Crate Engine</p>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs & Quick Stats -->
+      <div class="flex items-center gap-2 sm:gap-4">
+        <nav class="flex bg-booth-950 p-1 rounded-xl border border-booth-700">
+          <button onclick="switchTab('scanner')" id="nav-scanner" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-all bg-amber-500 text-booth-950 font-semibold shadow">
+            <i class="fa-solid fa-compact-disc mr-1.5"></i>Scanner &amp; Lab
+          </button>
+          <button onclick="switchTab('crate')" id="nav-crate" class="tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-all">
+            <i class="fa-solid fa-layer-group mr-1.5"></i>DJ Crate (<span id="crate-count-badge">6</span>)
+          </button>
+        </nav>
+
+        <div class="hidden md:flex items-center gap-3 text-xs font-mono text-slate-400 bg-booth-850 px-3 py-2 rounded-xl border border-booth-700">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>pgvector Index: Online</span>
+          <span class="text-booth-700">|</span>
+          <span>Offline Cache: Ready</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 1: VINYL LABEL & GROOVE SCANNER + LIVE BPM/KEY STUDIO            -->
+    <!-- ===================================================================== -->
+    <section id="view-scanner" class="space-y-6">
+
+      <!-- Top Row: Sample Selector & Capture Controls -->
+      <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl">
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-sm font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+              <i class="fa-solid fa-eye"></i> Multi-Layer Vinyl Optical &amp; Acoustic Recognition
+            </h2>
+            <p class="text-xs text-slate-400 mt-0.5">Select an underground pressing preset, upload a label/record photo, or open live booth camera.</p>
+          </div>
+
+          <!-- Capture Action Buttons -->
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="cursor-pointer px-3.5 py-2 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-medium text-slate-200 transition flex items-center gap-2">
+              <i class="fa-solid fa-upload text-cyan-400"></i>
+              <span>Upload Vinyl / Label</span>
+              <input type="file" id="image-upload-input" accept="image/*" class="hidden" onchange="handleImageUpload(event)" />
+            </label>
+
+            <button onclick="toggleCamera()" id="camera-toggle-btn" class="px-3.5 py-2 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/40 text-xs font-medium text-cyan-300 transition flex items-center gap-2">
+              <i class="fa-solid fa-camera"></i>
+              <span id="camera-btn-label">Live Camera</span>
+            </button>
+
+            <button onclick="runScanPipeline()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-booth-950 text-xs font-bold transition shadow-lg shadow-amber-500/20 flex items-center gap-2">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Re-Scan &amp; Analyze</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Underground Preset Pills -->
+        <div class="mt-4 pt-4 border-t border-booth-800 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-mono uppercase text-slate-500 mr-1">Test Pressings &amp; Samples:</span>
+          <button onclick="loadSampleRecord('detroit')" id="sample-btn-detroit" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/50 transition">
+            01. M-PLANT / Stamped Detroit 12"
+          </button>
+          <button onclick="loadSampleRecord('dubtechno')" id="sample-btn-dubtechno" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
+            02. BASIC-04 / Berlin Dub Techno
+          </button>
+          <button onclick="loadSampleRecord('whitelabel')" id="sample-btn-whitelabel" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
+            03. W/L-909 / Hand-Stamped Deep House
+          </button>
+          <button onclick="loadSampleRecord('minimal')" id="sample-btn-minimal" class="sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition">
+            04. PERLON-112 / Micro-Groove Minimal
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Split Grid: Left = Visual Vinyl & Groove Overlay | Right = Pipeline Telemetry & BPM/Key Deck -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN (7 Cols): Interactive Vinyl Canvas & Groove-Ring Estimator -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl relative overflow-hidden">
+
+            <!-- Overlay Toggle Toolbar -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-mono uppercase tracking-wider text-slate-300 font-semibold">Optical Platter View</span>
+                <span id="scan-status-pill" class="text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  MATCHED (98.4%)
+                </span>
+              </div>
+
+              <div class="flex items-center gap-2 text-xs">
+                <button onclick="toggleOverlay('label')" id="btn-toggle-label" class="px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[11px]">
+                  <i class="fa-solid fa-bullseye mr-1"></i>Label Ring
+                </button>
+                <button onclick="toggleOverlay('grooves')" id="btn-toggle-grooves" class="px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[11px]">
+                  <i class="fa-solid fa-record-vinyl mr-1"></i>Groove Breaks
+                </button>
+                <button onclick="toggleSpin()" id="btn-toggle-spin" class="px-2.5 py-1 rounded-lg bg-booth-800 text-slate-300 border border-booth-700 font-mono text-[11px] hover:text-white">
+                  <i class="fa-solid fa-rotate mr-1"></i>Spin
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Camera Video Feed (Hidden until activated) -->
+            <div id="camera-container" class="hidden relative rounded-xl overflow-hidden bg-black aspect-square max-h-[460px] mx-auto border border-cyan-500/50 mb-4">
+              <video id="camera-video" autoplay playsinline class="w-full h-full object-cover"></video>
+              <!-- Alignment Reticle -->
+              <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+                <div class="w-64 h-64 sm:w-72 sm:h-72 rounded-full border-2 border-dashed border-cyan-400/80 flex items-center justify-center">
+                  <div class="w-24 h-24 rounded-full border border-amber-400/90 flex items-center justify-center">
+                    <div class="w-3 h-3 rounded-full bg-amber-400"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="absolute bottom-3 inset-x-0 flex justify-center gap-3">
+                <button onclick="captureCameraFrame()" class="px-4 py-2 rounded-xl bg-amber-500 text-booth-950 font-bold text-xs shadow-lg">
+                  <i class="fa-solid fa-camera-retro mr-1.5"></i>Snap &amp; Analyze Label
+                </button>
+                <button onclick="toggleCamera()" class="px-3 py-2 rounded-xl bg-booth-900/90 text-slate-300 border border-booth-700 text-xs">
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- Responsive Interactive Vinyl & Groove Canvas Container -->
+            <div id="canvas-wrapper" class="relative w-full aspect-square max-h-[460px] mx-auto bg-booth-950 rounded-xl border border-booth-800 flex items-center justify-center overflow-hidden">
+              <canvas id="vinyl-canvas" class="w-full h-full block"></canvas>
+
+              <!-- Floating Groove Legend HUD -->
+              <div id="groove-hud" class="absolute bottom-3 left-3 right-3 bg-booth-950/90 backdrop-blur-md border border-booth-700/90 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
+                <div class="flex items-center gap-3">
+                  <span class="flex items-center gap-1.5 text-amber-400">
+                    <span class="w-2.5 h-2.5 rounded-full border-2 border-amber-400 inline-block"></span> Silent Lead-In Band
+                  </span>
+                  <span class="flex items-center gap-1.5 text-cyan-400">
+                    <span class="w-2.5 h-2.5 rounded-full border-2 border-dashed border-cyan-400 inline-block"></span> Center Label ROI
+                  </span>
+                </div>
+                <span id="hud-rpm-indicator" class="text-slate-300 font-semibold">33 ⅓ RPM // SIDE A</span>
+              </div>
+            </div>
+
+            <!-- Simulated Polar-to-Cartesian Unwrapped Rim Text Strip -->
+            <div class="mt-4 bg-booth-950 border border-booth-800 rounded-xl p-3">
+              <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-2">
+                <span class="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                  <i class="fa-solid fa-wave-square"></i> POLAR-TO-CARTESIAN UNWRAPPED RIM &amp; MATRIX OCR
+                </span>
+                <span>360° Radial Strip</span>
+              </div>
+              <div class="relative bg-booth-900 border border-cyan-500/30 rounded-lg px-3 py-2 font-mono text-xs text-cyan-200 tracking-widest overflow-x-auto whitespace-nowrap">
+                <span id="unwrapped-ocr-strip">CAT: M-PLANT-312 // SIDE A // 33 1/3 RPM // MATRIX: MP312-A1 NSC DETROIT // STEREO</span>
+              </div>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5 text-[11px] font-mono">
+                <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
+                  <span class="text-slate-500 block text-[10px]">CATALOG NO.</span>
+                  <span id="ocr-catno" class="text-amber-400 font-semibold">M-PLANT-312</span>
+                </div>
+                <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
+                  <span class="text-slate-500 block text-[10px]">DEADWAX MATRIX</span>
+                  <span id="ocr-matrix" class="text-slate-200 font-semibold">MP312-A1 NSC</span>
+                </div>
+                <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
+                  <span class="text-slate-500 block text-[10px]">PRESSING SPEED</span>
+                  <span id="ocr-rpm" class="text-cyan-400 font-semibold">33 ⅓ RPM</span>
+                </div>
+                <div class="bg-booth-900/80 px-2.5 py-1.5 rounded border border-booth-800">
+                  <span class="text-slate-500 block text-[10px]">DETECTED SIDE</span>
+                  <span id="ocr-side" class="text-emerald-400 font-semibold">SIDE A (2 Cuts)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT COLUMN (5 Cols): Recognition Pipeline Results + Live BPM/Key Turntable Analyzer -->
+        <div class="lg:col-span-5 space-y-5">
+
+          <!-- Multi-Layer Recognition Cascade Card -->
+          <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold">Recognition Cascade Telemetry</h3>
+              <span id="cascade-latency" class="text-[11px] font-mono text-emerald-400">Resolved in 340ms</span>
+            </div>
+
+            <!-- 4-Layer Pipeline Status Badges -->
+            <div class="grid grid-cols-2 gap-2 text-[11px] font-mono">
+              <div id="badge-layer-1" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                <span class="text-slate-300">1. Edge OCR</span>
+                <span class="text-emerald-400 font-bold">HIT</span>
+              </div>
+              <div id="badge-layer-2" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                <span class="text-slate-300">2. OpenCLIP ViT</span>
+                <span class="text-emerald-400 font-bold">0.94 SIM</span>
+              </div>
+              <div id="badge-layer-3" class="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                <span class="text-slate-300">3. Discogs Dump</span>
+                <span class="text-emerald-400 font-bold">SYNCED</span>
+              </div>
+              <div id="badge-layer-4" class="p-2 rounded-xl bg-booth-850 border border-booth-700 flex items-center justify-between">
+                <span class="text-slate-400">4. AudD Audio</span>
+                <span class="text-slate-500 font-bold">STANDBY</span>
+              </div>
+            </div>
+
+            <!-- Identified Release Card -->
+            <div class="bg-booth-950 border border-booth-800 rounded-xl p-3.5 space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <span id="res-label-tag" class="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">M-Plant // Detroit</span>
+                  <h4 id="res-title" class="text-base font-bold text-white mt-1.5">Robert Hood — Minimal Nation (Re-Issue)</h4>
+                  <p id="res-genre" class="text-xs text-slate-400">Detroit Techno • Minimal • 1994 / 2019</p>
+                </div>
+                <div class="text-right font-mono shrink-0">
+                  <div id="res-key-badge" class="text-sm font-bold px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">8A</div>
+                  <div id="res-bpm-badge" class="text-xs text-amber-400 mt-1 font-semibold">130.0 BPM</div>
+                </div>
+              </div>
+
+              <!-- Groove Position Tracklist Breakdown -->
+              <div class="space-y-1.5 pt-2 border-t border-booth-800">
+                <div class="text-[10px] font-mono uppercase text-slate-500 flex justify-between">
+                  <span>Groove Position &amp; Tracklist</span>
+                  <span>Radial Offset / Duration</span>
+                </div>
+                <div id="res-tracklist" class="space-y-1.5 text-xs">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+
+              <!-- Add to Personal Crate Controls -->
+              <div class="pt-2 border-t border-booth-800 flex flex-col sm:flex-row gap-2">
+                <select id="scan-location-select" class="bg-booth-900 border border-booth-700 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-500 flex-1">
+                  <option value="Crate 1 - Front (Peak)">Crate 1 - Front (Peak)</option>
+                  <option value="Crate 2 - Deep / Dub">Crate 2 - Deep / Dub</option>
+                  <option value="Gig Bag - Slot A">Gig Bag - Slot A</option>
+                  <option value="Kallax Shelf B2">Kallax Shelf B2</option>
+                </select>
+                <button onclick="addScannedRecordToCrate()" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-booth-950 font-bold text-xs transition flex items-center justify-center gap-1.5 shadow-md">
+                  <i class="fa-solid fa-plus"></i> Save to DJ Crate
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Mic / Tap BPM & Turntable Pitch Calculator -->
+          <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold flex items-center gap-1.5">
+                  <i class="fa-solid fa-wave-square"></i> Live Audio BPM, Key &amp; Pitch Deck
+                </h3>
+                <p class="text-[11px] text-slate-400">Mic onset pulse detector, manual tap tempo &amp; ±8% turntable pitch shift.</p>
+              </div>
+              <button onclick="toggleMicAnalyzer()" id="mic-btn" class="px-3 py-1.5 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-mono text-cyan-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-microphone"></i>
+                <span id="mic-btn-text">Mic Listen</span>
+              </button>
+            </div>
+
+            <!-- Audio Energy Visualizer Bar -->
+            <div class="bg-booth-950 border border-booth-800 rounded-xl p-3">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-[10px] font-mono text-slate-500 uppercase">Essentia Onset / Beat Energy</span>
+                <span id="mic-status-text" class="text-[10px] font-mono text-slate-400">Standby (Click Mic or Tap)</span>
+              </div>
+              <div id="audio-bars" class="h-10 flex items-end gap-1">
+                <!-- 24 visualizer bars generated via JS -->
+              </div>
+            </div>
+
+            <!-- BPM & Camelot Readout + Tap Button -->
+            <div class="grid grid-cols-3 gap-2.5">
+              <div class="bg-booth-950 border border-booth-800 rounded-xl p-2.5 text-center">
+                <span class="text-[10px] font-mono text-slate-500 block">LIVE DECK BPM</span>
+                <span id="live-bpm-display" class="text-xl font-mono font-bold text-white">130.0</span>
+              </div>
+              <div class="bg-booth-950 border border-booth-800 rounded-xl p-2.5 text-center">
+                <span class="text-[10px] font-mono text-slate-500 block">NATIVE (0%)</span>
+                <span id="native-bpm-display" class="text-xl font-mono font-bold text-amber-400">130.0</span>
+              </div>
+              <button onclick="handleTapTempo()" class="bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 border border-amber-500/50 rounded-xl p-2.5 text-center transition flex flex-col items-center justify-center cursor-pointer">
+                <span class="text-[10px] font-mono text-amber-300 uppercase">Manual</span>
+                <span class="text-sm font-mono font-bold text-amber-400">TAP BPM</span>
+              </button>
+            </div>
+
+            <!-- Turntable Pitch Fader (-8% to +8%) & RPM Toggle -->
+            <div class="bg-booth-950 border border-booth-800 rounded-xl p-3 space-y-2.5">
+              <div class="flex items-center justify-between text-xs font-mono">
+                <span class="text-slate-400">Turntable Pitch Fader</span>
+                <div class="flex items-center gap-2">
+                  <span id="pitch-percent-display" class="text-cyan-400 font-bold">+0.0%</span>
+                  <button onclick="resetPitch()" class="text-[10px] px-2 py-0.5 rounded bg-booth-800 hover:bg-booth-700 text-slate-300">Reset 0%</button>
+                </div>
+              </div>
+              <input type="range" id="pitch-slider" min="-8" max="8" step="0.1" value="0" oninput="updatePitchSlider(this.value)" class="w-full pitch-slider" />
+              <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                <span>-8.0%</span>
+                <span>-4.0%</span>
+                <span>0.0% (Quartz Lock)</span>
+                <span>+4.0%</span>
+                <span>+8.0%</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- VIEW 2: DJ VINYL CRATE & HARMONIC ORGANIZER                           -->
+    <!-- ===================================================================== -->
+    <section id="view-crate" class="hidden space-y-5">
+
+      <!-- Crate Filter & Export Control Bar -->
+      <div class="bg-booth-900 border border-booth-700 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-layer-group text-amber-400"></i> Personal DJ Vinyl Crate &amp; Harmonic Matcher
+            </h2>
+            <p class="text-xs text-slate-400">Filter by Camelot wheel compatibility, ±8% turntable pitch window, RPM, and physical shelf/bag slot.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="exportCrateCSV()" class="px-3.5 py-2 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-mono text-cyan-300 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-file-csv"></i> Export Rekordbox/Serato CSV
+            </button>
+            <button onclick="exportCrateJSON()" class="px-3.5 py-2 rounded-xl bg-booth-800 hover:bg-booth-700 border border-booth-700 text-xs font-mono text-amber-300 transition flex items-center gap-1.5">
+              <i class="fa-solid fa-download"></i> JSON Backup
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Inputs Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-3 border-t border-booth-800">
+          <!-- Search -->
+          <div class="relative">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+            <input type="text" id="filter-search" oninput="renderCrate()" placeholder="Artist, label, cat#, tag..." class="w-full bg-booth-950 border border-booth-700 rounded-xl pl-8 pr-3 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-amber-500" />
+          </div>
+
+          <!-- Sub-Genre Filter -->
+          <select id="filter-genre" onchange="renderCrate()" class="bg-booth-950 border border-booth-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            <option value="ALL">All Sub-Genres</option>
+            <option value="Detroit Techno">Detroit Techno</option>
+            <option value="Dub Techno">Dub Techno</option>
+            <option value="Deep House">Deep House</option>
+            <option value="Soulful House">Soulful House</option>
+            <option value="Minimal">Minimal / Microhouse</option>
+          </select>
+
+          <!-- Camelot Harmonic Key Filter -->
+          <select id="filter-key" onchange="renderCrate()" class="bg-booth-950 border border-booth-700 rounded-xl px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500">
+            <option value="ALL">Camelot Key: All</option>
+            <option value="8A">8A (Harmonic: 8A, 7A, 9A, 8B)</option>
+            <option value="7A">7A (Harmonic: 7A, 6A, 8A, 7B)</option>
+            <option value="9A">9A (Harmonic: 9A, 8A, 10A, 9B)</option>
+            <option value="6A">6A (Harmonic: 6A, 5A, 7A, 6B)</option>
+            <option value="11A">11A (Harmonic: 11A, 10A, 12A, 11B)</option>
+            <option value="4A">4A (Harmonic: 4A, 3A, 5A, 4B)</option>
+          </select>
+
+          <!-- Target BPM + ±8% Pitch Window -->
+          <div class="flex items-center gap-2 bg-booth-950 border border-booth-700 rounded-xl px-3 py-1.5">
+            <span class="text-[11px] font-mono text-slate-400 shrink-0">Target BPM:</span>
+            <input type="number" id="filter-bpm" oninput="renderCrate()" placeholder="e.g. 128" min="80" max="170" class="w-full bg-transparent text-xs font-mono text-amber-400 focus:outline-none" />
+            <span class="text-[10px] font-mono text-slate-500 shrink-0">±8%</span>
+          </div>
+
+          <!-- Physical Location Filter -->
+          <select id="filter-location" onchange="renderCrate()" class="bg-booth-950 border border-booth-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500">
+            <option value="ALL">All Physical Locations</option>
+            <option value="Crate 1 - Front (Peak)">Crate 1 - Front (Peak)</option>
+            <option value="Crate 2 - Deep / Dub">Crate 2 - Deep / Dub</option>
+            <option value="Gig Bag - Slot A">Gig Bag - Slot A</option>
+            <option value="Kallax Shelf B2">Kallax Shelf B2</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Crate Records Grid / Expandable Cards -->
+      <div id="crate-list-container" class="space-y-3">
+        <!-- Populated dynamically via JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-booth-800 bg-booth-900/60 py-4 px-6 text-center text-xs text-slate-500 font-mono">
+    GROOVEVAULT // Designed for Dark Booths, White Labels &amp; Deadwax Diggers
+  </footer>
+
+  <!-- ===================================================================== -->
+  <!-- APPLICATION LOGIC & SYNTHETIC VINYL/GROOVE RENDERING ENGINE           -->
+  <!-- ===================================================================== -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. SAMPLE RECORDS & PRE-POPULATED DJ CRATE DATA
+    // -------------------------------------------------------------------------
+    const SAMPLE_PRESSINGS = {
+      detroit: {
+        id: 'mp-312',
+        catno: 'M-PLANT-312',
+        label: 'M-Plant',
+        origin: 'Detroit, US',
+        artist: 'Robert Hood',
+        title: 'Minimal Nation (Studio Master)',
+        genre: 'Detroit Techno',
+        year: '1994',
+        rpm: '33 ⅓ RPM',
+        side: 'SIDE A',
+        matrix: 'MP312-A1 NSC DETROIT',
+        unwrappedText: 'CAT: M-PLANT-312 // SIDE A // 33 1/3 RPM // MATRIX: MP312-A1 NSC DETROIT // STEREO',
+        bpm: 130.0,
+        key: '8A',
+        location: 'Crate 1 - Front (Peak)',
+        labelColor: '#e2e8f0',
+        labelTextColor: '#0f172a',
+        stampStyle: 'DETROIT',
+        confidence: '98.4%',
+        clipSim: '0.94 SIM',
+        tracks: [
+          { pos: 'A1', title: 'Ride', duration: '6:12', startPct: 0, endPct: 52, bpm: 130.0, key: '8A', tag: 'Peak Time' },
+          { pos: 'A2', title: 'Museum', duration: '5:38', startPct: 54, endPct: 96, bpm: 129.5, key: '8A', tag: 'Hypnotic Tool' }
+        ]
+      },
+      dubtechno: {
+        id: 'bc-04',
+        catno: 'BASIC-04',
+        label: 'Basic Channel',
+        origin: 'Berlin, DE',
+        artist: 'Maurizio',
+        title: 'Domina (Carl Craig Remix)',
+        genre: 'Dub Techno',
+        year: '1993',
+        rpm: '45 RPM',
+        side: 'SIDE A',
+        matrix: 'BC-04-A D&M NSC',
+        unwrappedText: 'BASIC CHANNEL BERLIN // CAT: BASIC-04 // 45 RPM // RUNOUT: BC-04-A D&M NSC',
+        bpm: 126.0,
+        key: '7A',
+        location: 'Crate 2 - Deep / Dub',
+        labelColor: '#1e293b',
+        labelTextColor: '#94a3b8',
+        stampStyle: 'BERLIN',
+        confidence: '97.9%',
+        clipSim: '0.92 SIM',
+        tracks: [
+          { pos: 'A1', title: 'Domina (Carl Craig Mind Mix)', duration: '11:40', startPct: 0, endPct: 94, bpm: 126.0, key: '7A', tag: 'Deep Journey' }
+        ]
+      },
+      whitelabel: {
+        id: 'wl-909',
+        catno: 'W/L-909-LTD',
+        label: 'White Label Stamp',
+        origin: 'Chicago / NY',
+        artist: 'Unknown Artist (Moody Dubs)',
+        title: 'Late Night Transit EP (Hand-Stamped)',
+        genre: 'Deep House',
+        year: '2023',
+        rpm: '33 ⅓ RPM',
+        side: 'SIDE B',
+        matrix: 'WL909-B1 MASTERDISK',
+        unwrappedText: '[HAND STAMPED INK] W/L-909-LTD // 33 RPM // DEADWAX: WL909-B1 MASTERDISK',
+        bpm: 123.5,
+        key: '9A',
+        location: 'Gig Bag - Slot A',
+        labelColor: '#f8fafc',
+        labelTextColor: '#b91c1c',
+        stampStyle: 'STAMP',
+        confidence: '94.2%',
+        clipSim: '0.89 SIM',
+        tracks: [
+          { pos: 'B1', title: 'Transit Chord Dub', duration: '6:45', startPct: 0, endPct: 48, bpm: 123.5, key: '9A', tag: 'Warm-Up' },
+          { pos: 'B2', title: 'Warehouse Rhodes Tool', duration: '4:15', startPct: 50, endPct: 76, bpm: 124.0, key: '9A', tag: 'Transition Tool' },
+          { pos: 'B3', title: 'Subway Beats (Accapella)', duration: '2:50', startPct: 78, endPct: 96, bpm: 123.5, key: '9A', tag: 'B-Side Weapon' }
+        ]
+      },
+      minimal: {
+        id: 'perl-112',
+        catno: 'PERL-112',
+        label: 'Perlon',
+        origin: 'Frankfurt, DE',
+        artist: 'Zip & Sammy Dee',
+        title: 'Pantytec — Elastobabe',
+        genre: 'Minimal',
+        year: '2018',
+        rpm: '33 ⅓ RPM',
+        side: 'SIDE A',
+        matrix: 'PERL112-A1 MPO',
+        unwrappedText: 'PERLON // SUPERLONGEVITY // PERL-112 // 33 1/3 RPM // MATRIX: PERL112-A1 MPO',
+        bpm: 127.0,
+        key: '6A',
+        location: 'Kallax Shelf B2',
+        labelColor: '#f59e0b',
+        labelTextColor: '#090a0d',
+        stampStyle: 'PERLON',
+        confidence: '99.1%',
+        clipSim: '0.96 SIM',
+        tracks: [
+          { pos: 'A1', title: 'Elastobabe (Original)', duration: '7:20', startPct: 0, endPct: 56, bpm: 127.0, key: '6A', tag: 'Groove Lock' },
+          { pos: 'A2', title: 'Micro Dub Reduction', duration: '5:50', startPct: 58, endPct: 95, bpm: 127.0, key: '6A', tag: 'Afterhours' }
+        ]
+      }
+    };
+
+    // Initial DJ Crate Collection
+    let djCrate = [
+      SAMPLE_PRESSINGS.detroit,
+      SAMPLE_PRESSINGS.dubtechno,
+      SAMPLE_PRESSINGS.whitelabel,
+      SAMPLE_PRESSINGS.minimal,
+      {
+        id: 'kd-019',
+        catno: 'KDJ-19',
+        label: 'KDJ Records',
+        origin: 'Detroit, US',
+        artist: 'Moodymann',
+        title: 'Shades Of Jae',
+        genre: 'Soulful House',
+        year: '1999',
+        rpm: '33 ⅓ RPM',
+        side: 'SIDE A',
+        matrix: 'KDJ-19-A NSC',
+        bpm: 121.0,
+        key: '11A',
+        location: 'Gig Bag - Slot A',
+        tracks: [
+          { pos: 'A1', title: 'Shades Of Jae (Part 1)', duration: '7:45', startPct: 0, endPct: 58, bpm: 121.0, key: '11A', tag: 'Soulful Opener' },
+          { pos: 'A2', title: 'Shades Of Jae (Part 2)', duration: '5:10', startPct: 60, endPct: 95, bpm: 121.0, key: '11A', tag: 'Peak Groove' }
+        ]
+      },
+      {
+        id: 'ost-045',
+        catno: 'OSTGUT-045',
+        label: 'Ostgut Ton',
+        origin: 'Berlin, DE',
+        artist: 'Marcel Dettmann',
+        title: 'Corebox / Quicksand',
+        genre: 'Detroit Techno',
+        year: '2011',
+        rpm: '45 RPM',
+        side: 'SIDE A',
+        matrix: 'OSTGUT045-A D&M',
+        bpm: 132.0,
+        key: '4A',
+        location: 'Crate 1 - Front (Peak)',
+        tracks: [
+          { pos: 'A1', title: 'Corebox', duration: '6:55', startPct: 0, endPct: 94, bpm: 132.0, key: '4A', tag: 'Peak Time' }
+        ]
+      }
+    ];
+
+    // -------------------------------------------------------------------------
+    // 2. APPLICATION STATE
+    // -------------------------------------------------------------------------
+    let currentRecord = SAMPLE_PRESSINGS.detroit;
+    let uploadedImageObj = null;
+    let showLabelOverlay = true;
+    let showGrooveOverlay = true;
+    let isSpinning = false;
+    let spinAngle = 0;
+    let animFrameId = null;
+
+    // Live BPM & Pitch State
+    let nativeBpm = 130.0;
+    let pitchPercent = 0.0;
+    let tapTimestamps = [];
+    let micStream = null;
+    let audioCtx = null;
+    let analyserNode = null;
+    let micInterval = null;
+
+    // Camera State
+    let cameraStream = null;
+
+    // Expanded crate drawers set
+    let expandedCrateIds = new Set(['mp-312']);
+
+    // -------------------------------------------------------------------------
+    // 3. INITIALIZATION
+    // -------------------------------------------------------------------------
+    window.onload = function () {
+      initVisualizerBars();
+      loadSampleRecord('detroit');
+      renderCrate();
+      startCanvasRenderLoop();
+    };
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-950/95 border-emerald-500/60 text-emerald-200',
+        info: 'bg-booth-900/95 border-cyan-500/60 text-cyan-200',
+        warn: 'bg-amber-950/95 border-amber-500/60 text-amber-200'
+      };
+      toast.className = `pointer-events-auto px-4 py-2.5 rounded-xl border text-xs font-mono shadow-2xl backdrop-blur-md transition-all duration-300 flex items-center gap-2 ${colors[type] || colors.info}`;
+      toast.innerHTML = `<i class="fa-solid fa-circle-info"></i><span>${message}</span>`;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function switchTab(tab) {
+      const scannerView = document.getElementById('view-scanner');
+      const crateView = document.getElementById('view-crate');
+      const navScanner = document.getElementById('nav-scanner');
+      const navCrate = document.getElementById('nav-crate');
+
+      if (tab === 'scanner') {
+        scannerView.classList.remove('hidden');
+        crateView.classList.add('hidden');
+        navScanner.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-amber-500 text-booth-950 shadow';
+        navCrate.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-all';
+      } else {
+        scannerView.classList.add('hidden');
+        crateView.classList.remove('hidden');
+        navCrate.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-amber-500 text-booth-950 shadow';
+        navScanner.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-400 hover:text-white transition-all';
+        renderCrate();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. SAMPLE RECORD LOADING & RECOGNITION PIPELINE SIMULATION
+    // -------------------------------------------------------------------------
+    function loadSampleRecord(key) {
+      uploadedImageObj = null;
+      currentRecord = SAMPLE_PRESSINGS[key];
+
+      // Update active pill styling
+      document.querySelectorAll('.sample-pill').forEach(btn => {
+        btn.className = 'sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-booth-850 text-slate-400 hover:text-white border border-booth-700 transition';
+      });
+      const activeBtn = document.getElementById(`sample-btn-${key}`);
+      if (activeBtn) {
+        activeBtn.className = 'sample-pill px-3 py-1.5 rounded-lg text-xs font-mono bg-amber-500/20 text-amber-300 border border-amber-500/50 transition';
+      }
+
+      // Sync BPM deck to record's native BPM
+      nativeBpm = currentRecord.bpm;
+      resetPitch();
+
+      updateRecognitionUI(currentRecord, false);
+    }
+
+    function runScanPipeline() {
+      const pill = document.getElementById('scan-status-pill');
+      const latency = document.getElementById('cascade-latency');
+      pill.textContent = 'SCANNING...';
+      pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse';
+
+      setTimeout(() => {
+        const ms = Math.floor(260 + Math.random() * 140);
+        latency.textContent = `Resolved in ${ms}ms`;
+        pill.textContent = `MATCHED (${currentRecord.confidence})`;
+        pill.className = 'text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+        showToast(`Optical + pgvector lock: ${currentRecord.catno} (${currentRecord.title})`, 'success');
+      }, 450);
+    }
+
+    function updateRecognitionUI(rec, isCustomUpload) {
+      document.getElementById('hud-rpm-indicator').textContent = `${rec.rpm} // ${rec.side}`;
+      document.getElementById('unwrapped-ocr-strip').textContent = rec.unwrappedText;
+      document.getElementById('ocr-catno').textContent = rec.catno;
+      document.getElementById('ocr-matrix').textContent = rec.matrix;
+      document.getElementById('ocr-rpm').textContent = rec.rpm;
+      document.getElementById('ocr-side').textContent = `${rec.side} (${rec.tracks.length} Cut${rec.tracks.length > 1 ? 's' : ''})`;
+
+      document.getElementById('res-label-tag').textContent = `${rec.label} // ${rec.origin}`;
+      document.getElementById('res-title').textContent = `${rec.artist} — ${rec.title}`;
+      document.getElementById('res-genre').textContent = `${rec.genre} • ${rec.year}`;
+      document.getElementById('res-key-badge').textContent = rec.key;
+      document.getElementById('res-bpm-badge').textContent = `${rec.bpm.toFixed(1)} BPM`;
+
+      const l4 = document.getElementById('badge-layer-4');
+      if (isCustomUpload) {
+        l4.className = 'p-2 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-between';
+        l4.innerHTML = `<span class="text-cyan-200">4. AudD Audio</span><span class="text-cyan-400 font-bold">READY</span>`;
+      } else {
+        l4.className = 'p-2 rounded-xl bg-booth-850 border border-booth-700 flex items-center justify-between';
+        l4.innerHTML = `<span class="text-slate-400">4. AudD Audio</span><span class="text-slate-500 font-bold">STANDBY</span>`;
+      }
+
+      // Render groove position tracklist
+      const tracklistEl = document.getElementById('res-tracklist');
+      tracklistEl.innerHTML = rec.tracks.map(t => `
+        <div class="flex items-center justify-between bg-booth-900/90 border border-booth-800 rounded-lg px-2.5 py-1.5">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="font-mono font-bold text-amber-400 shrink-0">${t.pos}</span>
+            <span class="text-slate-200 truncate">${t.title}</span>
+            <span class="hidden sm:inline-block text-[10px] font-mono px-1.5 py-0.5 rounded bg-booth-800 text-slate-400">${t.tag}</span>
+          </div>
+          <div class="flex items-center gap-2 font-mono text-[11px] shrink-0 ml-2">
+            <span class="text-cyan-400">${t.startPct}%–${t.endPct}%</span>
+            <span class="text-slate-400">${t.duration}</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. IMAGE UPLOAD & LIVE CAMERA CAPTURE
+    // -------------------------------------------------------------------------
+    function handleImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const img = new Image();
+        img.onload = function () {
+          uploadedImageObj = img;
+          // Create a simulated custom white-label recognition result for uploaded photo
+          currentRecord = {
+            id: 'custom-' + Date.now(),
+            catno: 'CUSTOM-12IN',
+            label: 'Detected Center Label',
+            origin: 'Optical Capture',
+            artist: 'Unmarked White Label / Test Press',
+            title: file.name.replace(/\.[^/.]+$/, '').slice(0, 28) || 'Custom Vinyl Scan',
+            genre: 'Dub Techno',
+            year: '2026',
+            rpm: '33 ⅓ RPM',
+            side: 'SIDE A',
+            matrix: 'ETCH-A1 // RADIAL-SCAN',
+            unwrappedText: 'POLAR UNWRAP ACTIVE // DETECTED GROOVE RINGS: 2 // RUNOUT MATRIX PARSED',
+            bpm: nativeBpm,
+            key: '8A',
+            location: document.getElementById('scan-location-select').value,
+            confidence: '91.6%',
+            tracks: [
+              { pos: 'A1', title: 'Outer Groove Cut (Detected)', duration: '6:30', startPct: 0, endPct: 51, bpm: nativeBpm, key: '8A', tag: 'Opener' },
+              { pos: 'A2', title: 'Inner Groove Cut (Detected)', duration: '5:45', startPct: 53, endPct: 95, bpm: nativeBpm, key: '8A', tag: 'Peak Tool' }
+            ]
+          };
+          updateRecognitionUI(currentRecord, true);
+          runScanPipeline();
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function toggleCamera() {
+      const camContainer = document.getElementById('camera-container');
+      const canvasWrapper = document.getElementById('canvas-wrapper');
+      const btnLabel = document.getElementById('camera-btn-label');
+      const video = document.getElementById('camera-video');
+
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+        camContainer.classList.add('hidden');
+        canvasWrapper.classList.remove('hidden');
+        btnLabel.textContent = 'Live Camera';
+        return;
+      }
+
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = cameraStream;
+        camContainer.classList.remove('hidden');
+        canvasWrapper.classList.add('hidden');
+        btnLabel.textContent = 'Close Camera';
+        showToast('Align center label inside the cyan reticle and snap.', 'info');
+      } catch (err) {
+        showToast('Camera unavailable or permission denied — use Upload or Sample Pressings.', 'warn');
+      }
+    }
+
+    function captureCameraFrame() {
+      const video = document.getElementById('camera-video');
+      if (!video.videoWidth) return;
+      const offCanvas = document.createElement('canvas');
+      offCanvas.width = video.videoWidth;
+      offCanvas.height = video.videoHeight;
+      offCanvas.getContext('2d').drawImage(video, 0, 0);
+
+      const img = new Image();
+      img.onload = function () {
+        uploadedImageObj = img;
+        toggleCamera();
+        runScanPipeline();
+      };
+      img.src = offCanvas.toDataURL('image/jpeg', 0.9);
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. INTERACTIVE VINYL & GROOVE-RING BREAK CANVAS RENDERER
+    // -------------------------------------------------------------------------
+    function toggleOverlay(type) {
+      if (type === 'label') {
+        showLabelOverlay = !showLabelOverlay;
+        const btn = document.getElementById('btn-toggle-label');
+        btn.className = showLabelOverlay
+          ? 'px-2.5 py-1 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-mono text-[11px]'
+          : 'px-2.5 py-1 rounded-lg bg-booth-800 text-slate-400 border border-booth-700 font-mono text-[11px]';
+      } else if (type === 'grooves') {
+        showGrooveOverlay = !showGrooveOverlay;
+        const btn = document.getElementById('btn-toggle-grooves');
+        btn.className = showGrooveOverlay
+          ? 'px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono text-[11px]'
+          : 'px-2.5 py-1 rounded-lg bg-booth-800 text-slate-400 border border-booth-700 font-mono text-[11px]';
+      }
+    }
+
+    function toggleSpin() {
+      isSpinning = !isSpinning;
+      const btn = document.getElementById('btn-toggle-spin');
+      btn.className = isSpinning
+        ? 'px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono text-[11px]'
+        : 'px-2.5 py-1 rounded-lg bg-booth-800 text-slate-300 border border-booth-700 font-mono text-[11px] hover:text-white';
+    }
+
+    function startCanvasRenderLoop() {
+      function render() {
+        drawVinylCanvas();
+        if (isSpinning) {
+          spinAngle = (spinAngle + 0.012) % (Math.PI * 2);
+        }
+        animFrameId = requestAnimationFrame(render);
+      }
+      render();
+    }
+
+    function drawVinylCanvas() {
+      const canvas = document.getElementById('vinyl-canvas');
+      if (!canvas) return;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const size = Math.min(rect.width, rect.height);
+      if (canvas.width !== Math.floor(size * dpr) || canvas.height !== Math.floor(size * dpr)) {
+        canvas.width = Math.floor(size * dpr);
+        canvas.height = Math.floor(size * dpr);
+      }
+
+      const ctx = canvas.getContext('2d');
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, size, size);
+
+      const cx = size / 2;
+      const cy = size / 2 - 14; // Leave breathing room for bottom HUD
+      const outerRadius = size * 0.41;
+      const innerDeadwaxRadius = outerRadius * 0.42;
+      const labelRadius = outerRadius * 0.34;
+      const spindleRadius = outerRadius * 0.045;
+
+      // Rotate platter if spinning
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(spinAngle);
+      ctx.translate(-cx, -cy);
+
+      if (uploadedImageObj) {
+        // Draw user uploaded vinyl photo clipped to circular platter
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(uploadedImageObj, cx - outerRadius, cy - outerRadius, outerRadius * 2, outerRadius * 2);
+        ctx.restore();
+      } else {
+        // Draw photorealistic synthetic 12" black vinyl pressing
+        const grad = ctx.createRadialGradient(cx, cy, labelRadius, cx, cy, outerRadius);
+        grad.addColorStop(0, '#121318');
+        grad.addColorStop(0.5, '#1a1c23');
+        grad.addColorStop(0.75, '#111216');
+        grad.addColorStop(1, '#1e2029');
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#334155';
+        ctx.stroke();
+
+        // Subtle anisotropic light sheen across vinyl grooves
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerRadius, 0, Math.PI * 2);
+        ctx.clip();
+        const sheen = ctx.createLinearGradient(cx - outerRadius, cy - outerRadius, cx + outerRadius, cy + outerRadius);
+        sheen.addColorStop(0, 'rgba(255,255,255,0)');
+        sheen.addColorStop(0.45, 'rgba(255,255,255,0.06)');
+        sheen.addColorStop(0.5, 'rgba(6,182,212,0.08)');
+        sheen.addColorStop(0.55, 'rgba(255,255,255,0.06)');
+        sheen.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(cx - outerRadius, cy - outerRadius, outerRadius * 2, outerRadius * 2);
+        ctx.restore();
+
+        // Fine concentric micro-grooves
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.045)';
+        ctx.lineWidth = 0.7;
+        for (let r = innerDeadwaxRadius + 4; r < outerRadius - 3; r += 3.2) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, r, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Deadwax runout area & etched matrix text
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerDeadwaxRadius, 0, Math.PI * 2);
+        ctx.fillStyle = '#0d0e12';
+        ctx.fill();
+
+        ctx.save();
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.45)';
+        ctx.font = '600 9px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(currentRecord.matrix, cx, cy - labelRadius - 5);
+        ctx.restore();
+
+        // Center Paper Label
+        ctx.beginPath();
+        ctx.arc(cx, cy, labelRadius, 0, Math.PI * 2);
+        ctx.fillStyle = currentRecord.labelColor || '#e2e8f0';
+        ctx.fill();
+
+        // Label Typography / Stamp Artwork
+        ctx.fillStyle = currentRecord.labelTextColor || '#0f172a';
+        ctx.textAlign = 'center';
+        ctx.font = '700 11px "JetBrains Mono", monospace';
+        ctx.fillText(currentRecord.catno, cx, cy - labelRadius * 0.46);
+
+        ctx.font = '600 9px "Inter", sans-serif';
+        ctx.fillText(currentRecord.label.toUpperCase(), cx, cy - labelRadius * 0.24);
+
+        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.fillText(`${currentRecord.side} • ${currentRecord.rpm}`, cx, cy + labelRadius * 0.48);
+
+        // Stamped border ring for underground white label feel
+        ctx.beginPath();
+        ctx.arc(cx, cy, labelRadius * 0.86, 0, Math.PI * 2);
+        ctx.strokeStyle = currentRecord.labelTextColor || '#0f172a';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      // Spindle Hole
+      ctx.beginPath();
+      ctx.arc(cx, cy, spindleRadius, 0, Math.PI * 2);
+      ctx.fillStyle = '#090a0d';
+      ctx.fill();
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      ctx.restore(); // End rotation transform so overlays stay readable
+
+      // -----------------------------------------------------------------------
+      // COMPUTER VISION OVERLAY 1: GROOVE-RING BREAK ESTIMATOR (Silent Lead-Ins)
+      // -----------------------------------------------------------------------
+      if (showGrooveOverlay && currentRecord && currentRecord.tracks) {
+        const playableSpan = (outerRadius - 4) - (innerDeadwaxRadius + 4);
+
+        currentRecord.tracks.forEach((track, idx) => {
+          // Outer edge of vinyl = 0%, inner deadwax = 100%
+          const rStart = (outerRadius - 4) - (track.startPct / 100) * playableSpan;
+          const rEnd = (outerRadius - 4) - (track.endPct / 100) * playableSpan;
+          const rMid = (rStart + rEnd) / 2;
+
+          // Highlight silent lead-in band ring in Amber
+          ctx.beginPath();
+          ctx.arc(cx, cy, rStart, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(245, 158, 11, 0.85)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // Track position callout badge along upper-right diagonal
+          const angle = -Math.PI / 4 + idx * 0.34;
+          const lx = cx + Math.cos(angle) * rMid;
+          const ly = cy + Math.sin(angle) * rMid;
+
+          ctx.fillStyle = 'rgba(9, 10, 13, 0.88)';
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1;
+          const pillW = 68;
+          const pillH = 18;
+          ctx.beginPath();
+          ctx.roundRect(lx - pillW / 2, ly - pillH / 2, pillW, pillH, 5);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = '#fbbf24';
+          ctx.font = '700 10px "JetBrains Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(`${track.pos} (${track.duration})`, lx, ly);
+        });
+      }
+
+      // -----------------------------------------------------------------------
+      // COMPUTER VISION OVERLAY 2: CENTER LABEL ROI & POLAR UNWRAP RETICLE
+      // -----------------------------------------------------------------------
+      if (showLabelOverlay) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, labelRadius + 4, 0, Math.PI * 2);
+        ctx.strokeStyle = '#06b6d4';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.stroke();
+
+        // Corner brackets around label bounding box
+        const boxR = labelRadius + 8;
+        ctx.setLineDash([]);
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.7)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(cx - boxR, cy - boxR, boxR * 2, boxR * 2);
+        ctx.restore();
+      }
+
+      ctx.restore();
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. LIVE AUDIO MIC ANALYZER, TAP TEMPO & TURNTABLE PITCH CALCULATOR
+    // -------------------------------------------------------------------------
+    function initVisualizerBars() {
+      const container = document.getElementById('audio-bars');
+      container.innerHTML = '';
+      for (let i = 0; i < 28; i++) {
+        const bar = document.createElement('div');
+        bar.className = 'flex-1 bg-booth-800 rounded-t transition-all duration-75';
+        bar.style.height = '18%';
+        container.appendChild(bar);
+      }
+    }
+
+    function updatePitchSlider(val) {
+      pitchPercent = parseFloat(val);
+      const sign = pitchPercent > 0 ? '+' : '';
+      document.getElementById('pitch-percent-display').textContent = `${sign}${pitchPercent.toFixed(1)}%`;
+      recalculateBpmDisplay();
+    }
+
+    function resetPitch() {
+      pitchPercent = 0.0;
+      document.getElementById('pitch-slider').value = 0;
+      document.getElementById('pitch-percent-display').textContent = '+0.0%';
+      recalculateBpmDisplay();
+    }
+
+    function recalculateBpmDisplay() {
+      const liveBpm = nativeBpm * (1 + pitchPercent / 100);
+      document.getElementById('native-bpm-display').textContent = nativeBpm.toFixed(1);
+      document.getElementById('live-bpm-display').textContent = liveBpm.toFixed(1);
+    }
+
+    function handleTapTempo() {
+      const now = performance.now();
+      if (tapTimestamps.length > 0 && now - tapTimestamps[tapTimestamps.length - 1] > 2200) {
+        tapTimestamps = [];
+      }
+      tapTimestamps.push(now);
+      if (tapTimestamps.length > 8) tapTimestamps.shift();
+
+      // Pulse visualizer bars visually on tap
+      const bars = document.getElementById('audio-bars').children;
+      for (let i = 0; i < bars.length; i++) {
+        const h = 35 + Math.random() * 65;
+        bars[i].style.height = `${h}%`;
+        bars[i].className = 'flex-1 bg-amber-400 rounded-t transition-all duration-75';
+      }
+      setTimeout(() => {
+        for (let i = 0; i < bars.length; i++) {
+          bars[i].style.height = '18%';
+          bars[i].className = 'flex-1 bg-booth-800 rounded-t transition-all duration-150';
+        }
+      }, 140);
+
+      if (tapTimestamps.length >= 2) {
+        let totalInterval = 0;
+        for (let i = 1; i < tapTimestamps.length; i++) {
+          totalInterval += tapTimestamps[i] - tapTimestamps[i - 1];
+        }
+        const avgMs = totalInterval / (tapTimestamps.length - 1);
+        const tappedLiveBpm = Math.min(180, Math.max(75, 60000 / avgMs));
+        // Back-calculate native pressing BPM accounting for turntable pitch slider
+        nativeBpm = tappedLiveBpm / (1 + pitchPercent / 100);
+        recalculateBpmDisplay();
+        document.getElementById('mic-status-text').textContent = `Tap Lock (${tapTimestamps.length} beats)`;
+      }
+    }
+
+    async function toggleMicAnalyzer() {
+      const btnText = document.getElementById('mic-btn-text');
+      const statusText = document.getElementById('mic-status-text');
+
+      if (micStream) {
+        micStream.getTracks().forEach(t => t.stop());
+        micStream = null;
+        clearInterval(micInterval);
+        btnText.textContent = 'Mic Listen';
+        statusText.textContent = 'Standby (Click Mic or Tap)';
+        initVisualizerBars();
+        return;
+      }
+
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(micStream);
+        analyserNode = audioCtx.createAnalyser();
+        analyserNode.fftSize = 64;
+        source.connect(analyserNode);
+
+        const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+        const bars = document.getElementById('audio-bars').children;
+
+        btnText.textContent = 'Stop Mic';
+        statusText.textContent = 'Listening to Booth Monitor...';
+        showToast('Microphone active — hold near booth monitor for onset pulse.', 'info');
+
+        micInterval = setInterval(() => {
+          analyserNode.getByteFrequencyData(dataArray);
+          for (let i = 0; i < bars.length; i++) {
+            const val = dataArray[i % dataArray.length] || 0;
+            const pct = Math.max(12, Math.min(100, (val / 255) * 100));
+            bars[i].style.height = `${pct}%`;
+            bars[i].className = pct > 68
+              ? 'flex-1 bg-amber-400 rounded-t transition-all duration-75'
+              : 'flex-1 bg-cyan-500/70 rounded-t transition-all duration-75';
+          }
+        }, 60);
+      } catch (err) {
+        showToast('Mic access blocked — use Manual TAP BPM button instead.', 'warn');
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. DJ CRATE MANAGEMENT, HARMONIC FILTERING & EXPORTS
+    // -------------------------------------------------------------------------
+    function addScannedRecordToCrate() {
+      const chosenLocation = document.getElementById('scan-location-select').value;
+      const existingIdx = djCrate.findIndex(r => r.catno === currentRecord.catno);
+
+      const recordToSave = {
+        ...currentRecord,
+        bpm: parseFloat(nativeBpm.toFixed(1)),
+        location: chosenLocation
+      };
+
+      if (existingIdx >= 0) {
+        djCrate[existingIdx] = recordToSave;
+        showToast(`Updated ${recordToSave.catno} in "${chosenLocation}"`, 'success');
+      } else {
+        djCrate.unshift(recordToSave);
+        showToast(`Added ${recordToSave.catno} to "${chosenLocation}"`, 'success');
+      }
+
+      document.getElementById('crate-count-badge').textContent = djCrate.length;
+      renderCrate();
+    }
+
+    // Camelot Wheel Compatible Keys Helper (e.g. 8A -> 8A, 7A, 9A, 8B)
+    function getCompatibleCamelotKeys(key) {
+      if (!key || key === 'ALL') return [];
+      const num = parseInt(key.slice(0, -1), 10);
+      const letter = key.slice(-1).toUpperCase();
+      const prev = num === 1 ? 12 : num - 1;
+      const next = num === 12 ? 1 : num + 1;
+      const oppositeLetter = letter === 'A' ? 'B' : 'A';
+      return [`${num}${letter}`, `${prev}${letter}`, `${next}${letter}`, `${num}${oppositeLetter}`];
+    }
+
+    function toggleCrateDrawer(id) {
+      if (expandedCrateIds.has(id)) {
+        expandedCrateIds.delete(id);
+      } else {
+        expandedCrateIds.add(id);
+      }
+      renderCrate();
+    }
+
+    function updateCrateItemLocation(id, newLoc) {
+      const rec = djCrate.find(r => r.id === id);
+      if (rec) {
+        rec.location = newLoc;
+        showToast(`Moved ${rec.catno} → ${newLoc}`, 'info');
+      }
+    }
+
+    function renderCrate() {
+      const container = document.getElementById('crate-list-container');
+      const search = document.getElementById('filter-search').value.trim().toLowerCase();
+      const genreFilter = document.getElementById('filter-genre').value;
+      const keyFilter = document.getElementById('filter-key').value;
+      const bpmTarget = parseFloat(document.getElementById('filter-bpm').value);
+      const locFilter = document.getElementById('filter-location').value;
+
+      const compatibleKeys = getCompatibleCamelotKeys(keyFilter);
+
+      const filtered = djCrate.filter(rec => {
+        if (genreFilter !== 'ALL' && rec.genre !== genreFilter) return false;
+        if (locFilter !== 'ALL' && rec.location !== locFilter) return false;
+        if (keyFilter !== 'ALL' && !compatibleKeys.includes(rec.key)) return false;
+
+        // ±8% turntable pitch window check
+        if (!isNaN(bpmTarget) && bpmTarget > 0) {
+          const minPitchBpm = rec.bpm * 0.92;
+          const maxPitchBpm = rec.bpm * 1.08;
+          if (bpmTarget < minPitchBpm || bpmTarget > maxPitchBpm) return false;
+        }
+
+        if (search) {
+          const haystack = `${rec.artist} ${rec.title} ${rec.label} ${rec.catno} ${rec.genre} ${rec.tracks.map(t => t.title + ' ' + t.tag).join(' ')}`.toLowerCase();
+          if (!haystack.includes(search)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('crate-count-badge').textContent = djCrate.length;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="bg-booth-900 border border-booth-700 rounded-2xl p-8 text-center">
+            <p class="text-sm text-slate-300 font-medium">No vinyl records match your current harmonic / pitch filter.</p>
+            <p class="text-xs text-slate-500 mt-1">Try widening your target BPM or clearing the Camelot key filter.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(rec => {
+        const isExpanded = expandedCrateIds.has(rec.id);
+        const minBpm = (rec.bpm * 0.92).toFixed(1);
+        const maxBpm = (rec.bpm * 1.08).toFixed(1);
+
+        // Calculate required pitch % if user entered a Target BPM
+        let pitchBadge = '';
+        if (!isNaN(bpmTarget) && bpmTarget > 0) {
+          const reqPitch = ((bpmTarget - rec.bpm) / rec.bpm) * 100;
+          const sign = reqPitch >= 0 ? '+' : '';
+          pitchBadge = `<span class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">Set Pitch: ${sign}${reqPitch.toFixed(1)}%</span>`;
+        }
+
+        return `
+          <div class="bg-booth-900 border border-booth-700 hover:border-booth-600 rounded-2xl overflow-hidden transition shadow-lg">
+            <div onclick="toggleCrateDrawer('${rec.id}')" class="p-4 cursor-pointer flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <!-- Left: CatNo, Artist, Title -->
+              <div class="flex items-start sm:items-center gap-3 min-w-0">
+                <div class="w-11 h-11 rounded-full bg-booth-950 border border-booth-700 flex items-center justify-center shrink-0 relative">
+                  <div class="w-4 h-4 rounded-full bg-amber-500/80"></div>
+                  <div class="w-1.5 h-1.5 rounded-full bg-booth-950 absolute"></div>
+                </div>
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="text-xs font-mono font-bold text-amber-400">${rec.catno}</span>
+                    <span class="text-xs text-slate-500">•</span>
+                    <span class="text-xs text-slate-400">${rec.label}</span>
+                    <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-booth-800 text-slate-300 border border-booth-700">${rec.genre}</span>
+                    ${pitchBadge}
+                  </div>
+                  <h3 class="text-sm sm:text-base font-semibold text-white truncate mt-0.5">${rec.artist} — ${rec.title}</h3>
+                </div>
+              </div>
+
+              <!-- Right: Key, BPM Range, Physical Slot -->
+              <div class="flex flex-wrap items-center gap-2 sm:gap-3 font-mono text-xs shrink-0">
+                <span class="px-2.5 py-1 rounded-lg bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 font-bold">${rec.key}</span>
+                <div class="bg-booth-950 border border-booth-800 px-2.5 py-1 rounded-lg text-right">
+                  <span class="text-white font-bold">${rec.bpm.toFixed(1)} BPM</span>
+                  <span class="text-[10px] text-slate-500 block">±8%: ${minBpm}–${maxBpm}</span>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-booth-850 border border-booth-700 text-slate-300">${rec.rpm}</span>
+                <span class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300">
+                  <i class="fa-solid fa-box-archive mr-1"></i>${rec.location}
+                </span>
+                <i class="fa-solid fa-chevron-${isExpanded ? 'up' : 'down'} text-slate-400 ml-1"></i>
+              </div>
+            </div>
+
+            <!-- Expandable Tracklist & Physical Groove Drawer -->
+            ${isExpanded ? `
+              <div class="bg-booth-950/90 border-t border-booth-800 px-4 py-3.5 space-y-3">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <span class="font-mono text-slate-400">Matrix Runout: <strong class="text-slate-200">${rec.matrix || 'N/A'}</strong></span>
+                  <div class="flex items-center gap-2">
+                    <span class="text-slate-400 font-mono text-[11px]">Move Shelf/Slot:</span>
+                    <select onchange="updateCrateItemLocation('${rec.id}', this.value)" class="bg-booth-900 border border-booth-700 rounded-lg px-2.5 py-1 text-xs font-mono text-amber-300">
+                      ${['Crate 1 - Front (Peak)', 'Crate 2 - Deep / Dub', 'Gig Bag - Slot A', 'Kallax Shelf B2'].map(loc =>
+                        `<option value="${loc}" ${rec.location === loc ? 'selected' : ''}>${loc}</option>`
+                      ).join('')}
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  ${rec.tracks.map(t => `
+                    <div class="bg-booth-900 border border-booth-800 rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+                      <div class="min-w-0">
+                        <div class="flex items-center gap-2">
+                          <span class="font-mono font-bold text-amber-400">${t.pos}</span>
+                          <span class="font-medium text-slate-200 truncate">${t.title}</span>
+                        </div>
+                        <div class="text-[11px] font-mono text-slate-500 mt-0.5">
+                          Groove Band: <span class="text-cyan-400">${t.startPct}% → ${t.endPct}%</span> • Tag: <span class="text-slate-300">${t.tag}</span>
+                        </div>
+                      </div>
+                      <div class="text-right font-mono text-[11px] shrink-0">
+                        <div class="text-slate-200 font-semibold">${t.duration}</div>
+                        <div class="text-slate-500">${t.bpm} BPM • ${t.key}</div>
+                      </div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Export Rekordbox / Serato Compatible CSV
+    function exportCrateCSV() {
+      const headers = ['CatalogNo', 'Artist', 'ReleaseTitle', 'TrackPosition', 'TrackTitle', 'Genre', 'BPM', 'CamelotKey', 'RPM', 'PhysicalLocation', 'DJTag'];
+      const rows = [headers.join(',')];
+
+      djCrate.forEach(rec => {
+        rec.tracks.forEach(t => {
+          const row = [
+            `"${rec.catno}"`,
+            `"${rec.artist.replace(/"/g, '""')}"`,
+            `"${rec.title.replace(/"/g, '""')}"`,
+            `"${t.pos}"`,
+            `"${t.title.replace(/"/g, '""')}"`,
+            `"${rec.genre}"`,
+            t.bpm,
+            `"${t.key}"`,
+            `"${rec.rpm}"`,
+            `"${rec.location}"`,
+            `"${t.tag}"`
+          ];
+          rows.push(row.join(','));
+        });
+      });
+
+      triggerDownload(rows.join('\n'), 'groovevault-rekordbox-serato-crate.csv', 'text/csv;charset=utf-8;');
+      showToast('Exported Rekordbox / Serato CSV crate file.', 'success');
+    }
+
+    function exportCrateJSON() {
+      triggerDownload(JSON.stringify(djCrate, null, 2), 'groovevault-crate-backup.json', 'application/json');
+      showToast('Exported JSON crate backup.', 'success');
+    }
+
+    function triggerDownload(content, filename, mimeType) {
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
